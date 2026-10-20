@@ -2,7 +2,7 @@
 // DATABASE_URL. No psql required — just `npm run migrate`. Re-running is
 // safe as long as migrations use CREATE TABLE/INDEX (not IF NOT EXISTS
 // guarded yet, so don't run twice against the same already-migrated DB).
-require('dotenv').config();
+require('../src/config/loadEnv');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');

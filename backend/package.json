@@ -7,9 +7,12 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "migrate": "node scripts/migrate.js"
+    "migrate": "node scripts/migrate.js",
+    "build": "node -e \"require('./src/app'); console.log('Build OK: app module graph loads cleanly')\""
   },
   "dependencies": {
+    "@neon/config": "^1.9.2",
+    "@neon/env": "^1.6.3",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
