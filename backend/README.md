@@ -4,16 +4,24 @@ Node.js + Express API, backed by PostgreSQL. See `/CLAUDE.md` and `/docs/sprint-
 
 ## Setup
 
+The whole team points at one shared Postgres instance (ask whoever set it up
+for the connection string) rather than each running Postgres locally.
+
 ```
 cd backend
 npm install
-cp .env.example .env   # fill in DATABASE_URL, JWT_SECRET, SMTP_*
-createdb careconnect    # or point DATABASE_URL at an existing Postgres instance
-psql $DATABASE_URL -f src/db/migrations/001_init.sql
+cp .env.example .env   # paste in the shared DATABASE_URL, set JWT_SECRET, fill in SMTP_*
+npm run migrate         # applies every file in src/db/migrations, in order
 npm run dev
 ```
 
 Health check: `GET http://localhost:4000/health`
+
+Adding a migration later: drop a new `00N_description.sql` file into
+`src/db/migrations/` and have everyone run `npm run migrate` again (it only
+needs to be run once per new file, by whoever pulls it first — but it's not
+guarded against re-running the same file twice against an already-migrated
+DB, so don't run the whole set from scratch on a DB that already has it).
 
 ## Layout
 
