@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect | Patient login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    // Brand tokens: edit colors and fonts here (same block is in all four files)
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: {
+          display: ['"Josefin Sans"', 'system-ui', 'sans-serif'],
+          body: ['"Source Sans 3"', 'system-ui', 'sans-serif']
+        },
+        colors: {
+          ink: '#14212B',
+          paper: '#F8FAFA',
+          pulse: { DEFAULT: '#0B6E6E', dark: '#085555', soft: '#E7F2F1' }
+        }
+      } }
+    }
+  </script>
+  <style>
+    .pulse-draw { stroke-dasharray: 1; animation: draw 1.4s ease-out both; }
+    @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+    @media (prefers-reduced-motion: reduce) { .pulse-draw { animation: none; } }
+  </style>
+</head>
+<body class="min-h-screen bg-paper font-body text-ink antialiased">
+
+  <header class="border-b border-ink/10 bg-white">
+    <div class="mx-auto flex max-w-6xl items-center px-6 py-4">
+      <a href="index.html" class="rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pulse">
+        <img src="logo.svg" alt="CareConnect home" class="h-8 w-auto sm:h-10">
+      </a>
+    </div>
+  </header>
+
+  <main id="main" class="mx-auto max-w-md px-6 py-16 sm:py-24">
+    <svg class="h-8 w-32" viewBox="0 0 160 40" fill="none" aria-hidden="true">
+      <path class="pulse-draw" pathLength="1" d="M0 20 H58 L64 16 L70 20 H84 L96 3 L108 36 L114 18 H160" stroke="#0B6E6E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <h1 class="mt-6 font-display text-4xl font-medium">Patient login</h1>
+    <p class="mt-3 text-ink/75">Enter your username and last name to see your appointments.</p>
+
+    <!-- BACKEND: change action to your login route and method as needed -->
+    <form action="#" method="post" class="mt-8 space-y-5 rounded-2xl border border-ink/10 bg-white p-6 shadow-sm sm:p-8">
+      <div>
+        <label for="username" class="block text-sm font-semibold">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required
+               class="mt-2 block w-full rounded-lg border border-ink/20 bg-white px-4 py-3 text-base focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
+      </div>
+      <div>
+        <label for="last-name" class="block text-sm font-semibold">Last name</label>
+        <input id="last-name" name="last_name" type="text" autocomplete="family-name" required
+               class="mt-2 block w-full rounded-lg border border-ink/20 bg-white px-4 py-3 text-base focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
+      </div>
+      <button type="submit" class="w-full rounded-full bg-pulse px-6 py-3 font-semibold text-white transition hover:bg-pulse-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pulse">Log in</button>
+    </form>
+
+    <p class="mt-6 text-sm text-ink/70">Trouble logging in? Contact your clinic's front desk.</p>
+    <p class="mt-3 text-sm text-ink/70">Clinic staff? <a href="staff-login.html" class="font-semibold text-pulse underline underline-offset-4 hover:text-pulse-dark">Go to staff login</a></p>
+    <p class="mt-3 text-sm"><a href="login.html" class="font-semibold text-pulse underline underline-offset-4 hover:text-pulse-dark">Back to login options</a></p>
+  </main>
+
+</body>
+</html>

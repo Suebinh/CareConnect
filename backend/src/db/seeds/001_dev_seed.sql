@@ -1,0 +1,3 @@
+-- Minimal local-dev seed data. Expand as each role's UI needs sample data.
+-- TODO: insert one account per role, an appointment_types row or two,
+-- and a couple of sample appointments once appointments.model is wired up.
