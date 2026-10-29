@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    // Brand tokens: same block as the other pages
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { display: ["Josefin Sans", "system-ui", "sans-serif"], body: ["Source Sans 3", "system-ui", "sans-serif"] },
+        colors: { ink: "#14212B", paper: "#F8FAFA", pulse: { DEFAULT: "#0B6E6E", dark: "#085555", soft: "#E7F2F1" } }
+      } }
+    }
+  </script>
+  <title>CareConnect | My profile</title>
+  <script src="../js/api.js"></script>
+</head>
+<body class="min-h-screen bg-paper font-body text-ink antialiased">
+  <header class="border-b border-ink/10 bg-white">
+    <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <a href="../index.html"><img src="../logo.svg" alt="CareConnect home" class="h-8 w-auto sm:h-10"></a>
+      <div class="flex items-center gap-4">
+        <a id="back" href="staff-login.html" class="text-sm font-semibold text-pulse underline underline-offset-4">Back</a>
+        <button id="logout" class="rounded-full border border-pulse px-4 py-2 text-sm font-semibold text-pulse hover:bg-pulse-soft">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-md px-6 py-12 sm:py-16">
+    <h1 class="font-display text-4xl font-medium">My profile</h1>
+    <p class="mt-3 text-ink/75">Keep your name and phone number up to date.</p>
+
+    <form id="form" novalidate class="mt-8 space-y-5 rounded-2xl border border-ink/10 bg-white p-6 shadow-sm sm:p-8">
+      <p id="msg" role="status" hidden class="rounded-lg border px-4 py-3 text-sm"></p>
+      <div>
+        <label for="name" class="block text-sm font-semibold">Name</label>
+        <input id="name" type="text" required class="mt-2 block w-full rounded-lg border border-ink/20 px-4 py-3 focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
+      </div>
+      <div>
+        <label for="phone" class="block text-sm font-semibold">Phone number</label>
+        <input id="phone" type="tel" autocomplete="tel" placeholder="(555) 123-4567" class="mt-2 block w-full rounded-lg border border-ink/20 px-4 py-3 focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
+      </div>
+      <dl class="grid grid-cols-3 gap-y-2 text-sm">
+        <dt class="font-semibold">Email</dt><dd id="email" class="col-span-2 text-ink/75"></dd>
+        <dt class="font-semibold">Role</dt><dd id="role" class="col-span-2 text-ink/75"></dd>
+      </dl>
+      <button type="submit" class="w-full rounded-full bg-pulse px-6 py-3 font-semibold text-white hover:bg-pulse-dark">Save changes</button>
+    </form>
+  </main>
+
+  <script>
+    if (requireLogin()) {
+      const $ = (id) => document.getElementById(id);
+      const ROLE_LABEL = { physician: 'Physician', physician_assistant: 'Physician assistant', nurse: 'Nurse', receptionist: 'Receptionist', data_analyst: 'Data analyst', process_manager: 'Process manager' };
+      const HOME = { nurse: 'nurse-schedule.html', data_analyst: 'analyst-no-show.html' };
+
+      $('logout').addEventListener('click', logout);
+      $('back').href = HOME[sessionStorage.getItem('role')] || 'staff-login.html';
+
+      function say(text, ok) {
+        const m = $('msg');
+        m.textContent = text;
+        m.hidden = false;
+        m.className = 'rounded-lg border px-4 py-3 text-sm ' + (ok
+          ? 'border-pulse/30 bg-pulse-soft'
+          : 'border-[#F4B6B0] bg-[#FEF3F2] text-[#B42318]');
+      }
+
+      apiFetch('/accounts/me').then(({ account }) => {
+        $('name').value = account.name || '';
+        $('phone').value = account.phone || '';
+        $('email').textContent = account.email;
+        $('role').textContent = ROLE_LABEL[account.role] || account.role;
+      }).catch(err => say(err.message, false));
+
+      $('form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = $('name').value.trim(), phone = $('phone').value.trim();
+        if (!name) { say('Name is required.', false); return; }
+        try {
+          const { account } = await apiFetch('/accounts/me', { method: 'PUT', body: JSON.stringify({ name, phone }) });
+          sessionStorage.setItem('name', account.name);
+          say('Profile saved.', true);
+        } catch (err) { say(err.message, false); }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    // Brand tokens: same block as the other pages
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { display: ["Josefin Sans", "system-ui", "sans-serif"], body: ["Source Sans 3", "system-ui", "sans-serif"] },
+        colors: { ink: "#14212B", paper: "#F8FAFA", pulse: { DEFAULT: "#0B6E6E", dark: "#085555", soft: "#E7F2F1" } }
+      } }
+    }
+  </script>
+  <title>CareConnect | Nurse schedule</title>
+  <script src="../js/api.js"></script>
+</head>
+<body class="min-h-screen bg-paper font-body text-ink antialiased">
+  <header class="border-b border-ink/10 bg-white">
+    <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <a href="../index.html"><img src="../logo.svg" alt="CareConnect home" class="h-8 w-auto sm:h-10"></a>
+      <div class="flex items-center gap-4">
+        <a href="profile.html" class="text-sm font-semibold text-pulse underline underline-offset-4">My profile</a>
+        <button id="logout" class="rounded-full border border-pulse px-4 py-2 text-sm font-semibold text-pulse hover:bg-pulse-soft">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-6 py-10">
+    <h1 class="font-display text-3xl font-medium sm:text-4xl">Daily schedule</h1>
+    <p id="subtitle" class="mt-2 text-ink/75">Appointments for the providers you support.</p>
+
+    <div class="mt-6 flex flex-wrap items-end gap-3">
+      <div>
+        <label for="date" class="block text-sm font-semibold">Date</label>
+        <input id="date" type="date" class="mt-1 rounded-lg border border-ink/20 bg-white px-3 py-2 focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
+      </div>
+      <button id="today" class="rounded-full border border-pulse px-4 py-2 text-sm font-semibold text-pulse hover:bg-pulse-soft">Today</button>
+    </div>
+
+    <p id="providers" class="mt-6 text-sm text-ink/75"></p>
+    <p id="message" role="status" class="mt-4 text-ink/75"></p>
+
+    <div class="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white shadow-sm">
+      <table id="schedule" class="w-full text-left text-sm" hidden>
+        <thead class="border-b border-ink/10 bg-pulse-soft">
+          <tr><th class="p-3">Time</th><th class="p-3">Provider</th><th class="p-3">Patient</th><th class="p-3">Appointment type</th><th class="p-3">Status</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    if (requireLogin(['nurse', 'physician'])) {
+      const $ = (id) => document.getElementById(id);
+      const STATUS = { booked: 'Booked', completed: 'Completed', no_show: 'No-show', cancelled: 'Cancelled' };
+      const today = () => new Date().toLocaleDateString('en-CA');
+
+      $('date').value = today();
+      $('logout').addEventListener('click', logout);
+      $('today').addEventListener('click', () => { $('date').value = today(); load(); });
+      $('date').addEventListener('change', load);
+
+      async function load() {
+        const body = document.querySelector('#schedule tbody');
+        body.innerHTML = '';
+        $('schedule').hidden = true;
+        $('message').textContent = 'Loading…';
+        try {
+          const data = await apiFetch('/schedules/supervised?date=' + $('date').value);
+          $('providers').textContent = data.providers.length
+            ? 'Providers you support: ' + data.providers.map(p => p.name).join(', ')
+            : '';
+          if (!data.providers.length) { $('message').textContent = 'You are not linked to any providers yet. Ask a Process Manager to assign them.'; return; }
+          if (!data.appointments.length) { $('message').textContent = 'No appointments on this day.'; return; }
+          $('message').textContent = '';
+          data.appointments.forEach(a => {
+            const row = body.insertRow();
+            row.className = 'border-b border-ink/10 last:border-0';
+            [a.start_time + '–' + a.end_time, a.provider_name, a.patient_name, a.appointment_type, STATUS[a.status] || a.status]
+              .forEach(v => { const c = row.insertCell(); c.className = 'p-3'; c.textContent = v; });
+          });
+          $('schedule').hidden = false;
+        } catch (err) { $('message').textContent = err.message; }
+      }
+      load();
+    }
+  </script>
+</body>
+</html>

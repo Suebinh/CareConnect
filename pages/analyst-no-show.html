@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    // Brand tokens: same block as the other pages
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { display: ["Josefin Sans", "system-ui", "sans-serif"], body: ["Source Sans 3", "system-ui", "sans-serif"] },
+        colors: { ink: "#14212B", paper: "#F8FAFA", pulse: { DEFAULT: "#0B6E6E", dark: "#085555", soft: "#E7F2F1" } }
+      } }
+    }
+  </script>
+  <title>CareConnect | No-show report</title>
+  <script src="../js/api.js"></script>
+</head>
+<body class="min-h-screen bg-paper font-body text-ink antialiased">
+  <header class="border-b border-ink/10 bg-white">
+    <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <a href="../index.html"><img src="../logo.svg" alt="CareConnect home" class="h-8 w-auto sm:h-10"></a>
+      <div class="flex items-center gap-4">
+        <a href="profile.html" class="text-sm font-semibold text-pulse underline underline-offset-4">My profile</a>
+        <button id="logout" class="rounded-full border border-pulse px-4 py-2 text-sm font-semibold text-pulse hover:bg-pulse-soft">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-6 py-10">
+    <h1 class="font-display text-3xl font-medium sm:text-4xl">No-show rate</h1>
+    <p class="mt-2 max-w-2xl text-ink/75">Share of completed and missed visits that were no-shows. Cancelled appointments are left out. This report uses de-identified data, so no patient names appear.</p>
+
+    <div class="mt-6 flex flex-wrap items-end gap-3">
+      <div>
+        <label for="groupBy" class="block text-sm font-semibold">Break down by</label>
+        <select id="groupBy" class="mt-1 rounded-lg border border-ink/20 bg-white px-3 py-2 focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
+          <option value="physician">Provider</option>
+          <option value="day">Day of week</option>
+          <option value="type">Appointment type</option>
+        </select>
+      </div>
+      <div>
+        <label for="from" class="block text-sm font-semibold">From</label>
+        <input id="from" type="date" class="mt-1 rounded-lg border border-ink/20 bg-white px-3 py-2">
+      </div>
+      <div>
+        <label for="to" class="block text-sm font-semibold">To</label>
+        <input id="to" type="date" class="mt-1 rounded-lg border border-ink/20 bg-white px-3 py-2">
+      </div>
+      <button id="run" class="rounded-full bg-pulse px-5 py-2 font-semibold text-white hover:bg-pulse-dark">Run report</button>
+    </div>
+
+    <p id="message" role="status" class="mt-6 text-ink/75"></p>
+
+    <div class="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white shadow-sm">
+      <table id="report" class="w-full text-left text-sm" hidden>
+        <thead class="border-b border-ink/10 bg-pulse-soft">
+          <tr><th id="labelHead" class="p-3">Provider</th><th class="p-3">No-shows</th><th class="p-3">Total visits</th><th class="p-3">No-show rate</th><th class="p-3 w-1/3">Chart</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    if (requireLogin(['data_analyst'])) {
+      const $ = (id) => document.getElementById(id);
+      const HEADINGS = { physician: 'Provider', day: 'Day of week', type: 'Appointment type' };
+      $('logout').addEventListener('click', logout);
+      $('run').addEventListener('click', run);
+      $('groupBy').addEventListener('change', run);
+
+      async function run() {
+        const body = document.querySelector('#report tbody');
+        body.innerHTML = '';
+        $('report').hidden = true;
+        const from = $('from').value, to = $('to').value;
+        if ((from && !to) || (!from && to)) { $('message').textContent = 'Enter both a start and an end date, or leave both empty.'; return; }
+        const groupBy = $('groupBy').value;
+        let url = '/reports/no-show-rate?groupBy=' + groupBy;
+        if (from && to) url += '&from=' + from + '&to=' + to;
+        $('message').textContent = 'Loading…';
+        try {
+          const data = await apiFetch(url);
+          $('labelHead').textContent = HEADINGS[groupBy];
+          if (!data.results.length) { $('message').textContent = 'No completed or missed visits in this range.'; return; }
+          $('message').textContent = '';
+          const max = Math.max(...data.results.map(r => r.no_show_rate_pct), 1);
+          data.results.forEach(r => {
+            const row = body.insertRow();
+            row.className = 'border-b border-ink/10 last:border-0';
+            [r.label, r.no_shows, r.total_appointments, r.no_show_rate_pct + '%']
+              .forEach(v => { const c = row.insertCell(); c.className = 'p-3'; c.textContent = v; });
+            const cell = row.insertCell(); cell.className = 'p-3';
+            const bar = document.createElement('div');
+            bar.className = 'h-3 rounded-full bg-pulse';
+            bar.style.width = Math.max(2, (r.no_show_rate_pct / max) * 100) + '%';
+            bar.setAttribute('aria-label', r.no_show_rate_pct + ' percent');
+            cell.appendChild(bar);
+          });
+          $('report').hidden = false;
+        } catch (err) { $('message').textContent = err.message; }
+      }
+      run();
+    }
+  </script>
+</body>
+</html>

@@ -1,13 +1,12 @@
-// Every Data Analyst-facing query must go through here rather than the
-// raw appointments/accounts tables — sprint log #228-230, CLAUDE.md
-// HIPAA constraint ("de-identified data for the Data Analyst role").
+const IDENTIFYING_KEYS = new Set([
+  'patient_id', 'patient_name', 'patient_email', 'patient_phone', 'patient_dob',
+  'date_of_birth', 'email', 'phone', 'password_hash',
+]);
 
+// Last-line guard: the SQL view already excludes these, this catches mistakes.
 async function stripIdentifiers(rows) {
-  // TODO: remove patient name/email/phone/contact fields from each row
-  // before it reaches a reports.controller response. Prefer doing this
-  // at the SQL layer with a dedicated de-identified view/materialized
-  // view, and treat this function as the last-line guard.
-  throw new Error('Not implemented: deidentify.service.stripIdentifiers');
+  return rows.map((row) =>
+    Object.fromEntries(Object.entries(row).filter(([key]) => !IDENTIFYING_KEYS.has(key)))
+  );
 }
-
 module.exports = { stripIdentifiers };

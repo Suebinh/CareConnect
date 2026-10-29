@@ -10,24 +10,33 @@ const transporter = nodemailer.createTransport({
 // emails may only ever include date, time, and location — never the
 // appointment type or reason for visit (sprint log #351-354).
 
+// With no SMTP_HOST set, the email prints in the back end terminal (handy for demos).
 async function sendPasswordReset(to, resetLink) {
-  // TODO: render a password-reset email template, send via transporter
-  throw new Error('Not implemented: email.service.sendPasswordReset');
+  const message = {
+    from: process.env.EMAIL_FROM,
+    to,
+    subject: 'Reset your CareConnect password',
+    text:
+      'We received a request to reset your CareConnect password.\n\n' +
+      `Use this link within 60 minutes:\n${resetLink}\n\n` +
+      "If you didn't ask for this, you can ignore this email.",
+  };
+  if (!process.env.SMTP_HOST) {
+    console.log(`\n[DEV EMAIL - no SMTP configured]\nTo: ${to}\n${message.subject}\n${message.text}\n`);
+    return;
+  }
+  await transporter.sendMail(message);
 }
 
 async function sendAppointmentReminder(to, { date, time, location, cancelLink, rescheduleLink }) {
-  // TODO: render reminder template (date/time/location + secure
-  // expiring cancel/reschedule links — sprint log #347-348), send
   throw new Error('Not implemented: email.service.sendAppointmentReminder');
 }
 
 async function sendBookingConfirmation(to, { date, time, location, cancelLink, rescheduleLink }) {
-  // TODO: render confirmation template, send (sprint log #357-359)
   throw new Error('Not implemented: email.service.sendBookingConfirmation');
 }
 
 async function sendFailedBatchAlert(to, { jobName, failureCount }) {
-  // TODO: alert Process Manager when a reminder batch fails (sprint log #379)
   throw new Error('Not implemented: email.service.sendFailedBatchAlert');
 }
 

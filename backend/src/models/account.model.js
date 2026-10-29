@@ -1,9 +1,6 @@
 const db = require('../config/db');
 
-// One table for all roles (Physician, PA, Nurse, Patient, Data Analyst,
-// Receptionist, Process Manager) with a `role` column, rather than a
-// table per role — simpler RBAC checks, matches how CLAUDE.md's role
-// list is used across every route. See db/migrations/001_init.sql.
+// One table for all roles with a `role` column. See db/migrations/001_init.sql.
 
 async function findByEmail(email) {
   const result = await db.query('SELECT * FROM accounts WHERE email = $1', [email]);
@@ -25,9 +22,14 @@ async function create({ email, passwordHash, role, name, phone }) {
   return result.rows[0];
 }
 
-async function updateProfile(id, fields) {
-  // TODO: UPDATE accounts SET ... WHERE id = $1 (sprint log #266-268)
-  throw new Error('Not implemented: account.model.updateProfile');
+// Name and phone only. Users can't change their own role here.
+async function updateProfile(id, { name, phone }) {
+  const result = await db.query(
+    `UPDATE accounts SET name = $2, phone = $3 WHERE id = $1
+     RETURNING id, email, role, name, phone, specialty, status`,
+    [id, name, phone || null]
+  );
+  return result.rows[0] || null;
 }
 
 async function setStatus(id, status) {
