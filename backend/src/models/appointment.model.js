@@ -1,4 +1,6 @@
-// Query via require('../config/db').query(text, params).
+const db = require('../config/db');
+const { CLINIC_TZ } = require('../config/clinic');
+
 //
 // `status` is one of: booked | completed | no_show | cancelled.
 // `booked_by` is one of: patient | receptionist.
@@ -10,10 +12,30 @@ async function findOpenSlots({ providerId, date, specialty }) {
   throw new Error('Not implemented: appointment.model.findOpenSlots');
 }
 
+// A patient's upcoming (not yet started, not cancelled) appointments, soonest first.
+// patientId must always come from the session, never a URL param (CLAUDE.md HIPAA note).
+// Scheduling details only: no visit notes, no other patients.
 async function findByPatient(patientId) {
-  // TODO: SELECT * FROM appointments WHERE patient_id = $1 — always scope
-  // to the session's patient id, never a URL param (CLAUDE.md HIPAA note)
-  throw new Error('Not implemented: appointment.model.findByPatient');
+  const result = await db.query(
+    `SELECT a.id,
+            to_char(a.start_at AT TIME ZONE '${CLINIC_TZ}', 'YYYY-MM-DD') AS date,
+            to_char(a.start_at AT TIME ZONE '${CLINIC_TZ}', 'HH24:MI') AS start_time,
+            to_char(a.end_at AT TIME ZONE '${CLINIC_TZ}', 'HH24:MI') AS end_time,
+            a.status,
+            t.name AS appointment_type,
+            prov.name AS provider_name,
+            prov.role AS provider_role,
+            prov.specialty AS provider_specialty
+     FROM appointments a
+     JOIN accounts prov ON prov.id = a.provider_id
+     JOIN appointment_types t ON t.id = a.appointment_type_id
+     WHERE a.patient_id = $1
+       AND a.status = 'booked'
+       AND a.start_at >= now()
+     ORDER BY a.start_at`,
+    [patientId]
+  );
+  return result.rows;
 }
 
 async function findByProviderAndDate(providerId, date) {

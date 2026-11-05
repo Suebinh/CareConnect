@@ -1,13 +1,19 @@
+const appointmentModel = require('../models/appointment.model');
+
 // TODO: filter open slots by physician/date/specialty, excluding blocked
 // and already-booked slots (sprint log #305-307)
 async function searchOpenSlots(req, res, next) {
   res.status(501).json({ error: 'Not implemented: searchOpenSlots' });
 }
 
-// TODO: scope strictly to req.user.id, never a URL param — see CLAUDE.md
-// HIPAA constraint (sprint log #327, #332)
+// Patient's own upcoming appointments (sprint log #327-330, #332).
+// GET /api/appointments/mine — scoped strictly to req.user.id, never a URL
+// param, so a patient can only ever see their own (CLAUDE.md HIPAA constraint).
 async function getMyAppointments(req, res, next) {
-  res.status(501).json({ error: 'Not implemented: getMyAppointments' });
+  try {
+    const appointments = await appointmentModel.findByPatient(req.user.id);
+    res.json({ appointments });
+  } catch (err) { next(err); }
 }
 
 // TODO: run services/conflictCheck.service.js before writing, reject

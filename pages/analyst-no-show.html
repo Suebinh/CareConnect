@@ -3,108 +3,349 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect | No-show report</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script>
-    // Brand tokens: same block as the other pages
-    tailwind.config = {
-      theme: { extend: {
-        fontFamily: { display: ["Josefin Sans", "system-ui", "sans-serif"], body: ["Source Sans 3", "system-ui", "sans-serif"] },
-        colors: { ink: "#14212B", paper: "#F8FAFA", pulse: { DEFAULT: "#0B6E6E", dark: "#085555", soft: "#E7F2F1" } }
-      } }
-    }
-  </script>
-  <title>CareConnect | No-show report</title>
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/theme.css">
   <script src="../js/api.js"></script>
+  <style>
+    /* ---------- Ranked bar chart ----------
+       Emphasis: groups above the clinic average are solid white, the rest are muted.
+       Navy line = clinic average. Every bar carries its value at the tip. */
+    .chart { --label-w: 11rem; position: relative; transition: opacity .2s ease; }
+    .chart.is-loading { opacity: .45; }
+    .chart-row { display: grid; grid-template-columns: var(--label-w) 1fr; align-items: center; gap: 1rem; padding: .45rem .5rem; border-radius: 12px; outline: none; cursor: default; }
+    .chart-row:hover, .chart-row:focus-visible { background: rgba(252, 255, 255, .08); }
+    .chart-row:focus-visible { box-shadow: 0 0 0 2px var(--white); }
+    .chart-label { font-size: .9rem; line-height: 1.25; }
+    .chart-track { position: relative; height: 24px; }
+    .chart-bar {
+      position: absolute; left: 0; top: 0; bottom: 0; min-width: 2px;
+      border-radius: 0 4px 4px 0; /* square at the baseline, rounded data end */
+      background: rgba(252, 255, 255, .5);
+      transition: width .6s cubic-bezier(.22, 1, .36, 1), background-color .2s ease;
+    }
+    .chart-bar.is-high { background: var(--white); }
+    .chart-row:hover .chart-bar, .chart-row:focus-visible .chart-bar { filter: brightness(1.08); }
+    /* Value labels sit above the average line, with a soft navy halo so the line never cuts through the text */
+    .chart-value { position: absolute; z-index: 3; top: 50%; transform: translateY(-50%); padding-left: .55rem; white-space: nowrap; font-size: .85rem; font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 2px rgba(6, 42, 61, .95), 0 0 6px rgba(6, 42, 61, .85), 0 0 12px rgba(6, 42, 61, .6); }
+    .chart-row { position: relative; }
+    .chart-value b { font-weight: 700; }
+    .chart-value span { color: rgba(252, 255, 255, .7); margin-left: .35rem; }
+
+    /* Gridlines + axis share the bar area's coordinates */
+    .chart-plot { position: absolute; top: 0; bottom: 1.75rem; right: .5rem; left: calc(var(--label-w) + 1.5rem); pointer-events: none; }
+    .chart-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(252, 255, 255, .16); }
+    .chart-tick { position: absolute; bottom: -1.5rem; transform: translateX(-50%); font-size: .7rem; color: rgba(252, 255, 255, .65); font-variant-numeric: tabular-nums; }
+    .chart-avg { position: absolute; top: -1.9rem; bottom: 0; width: 2px; margin-left: -1px; background: var(--navy); z-index: 2; transition: left .6s cubic-bezier(.22, 1, .36, 1); }
+    .chart-avg-label { position: absolute; top: 0; left: 50%; transform: translateX(-50%); white-space: nowrap; border-radius: 999px; background: var(--navy); padding: .15rem .55rem; font-size: .7rem; font-weight: 600; color: var(--white); }
+
+    /* Tooltip */
+    .chart-tip {
+      position: fixed; z-index: 50; pointer-events: none; min-width: 12rem;
+      border-radius: 14px; padding: .65rem .8rem; font-size: .8rem;
+      background: linear-gradient(135deg, rgba(30, 110, 160, .7), rgba(6, 42, 61, .8));
+      border: 1px solid rgba(252, 255, 255, .28);
+      box-shadow: 0 18px 40px -16px rgba(6, 42, 61, .8);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    }
+    .chart-tip strong { display: block; font-size: 1.15rem; font-weight: 700; }
+    .chart-tip p { margin: .15rem 0 0; color: rgba(252, 255, 255, .78); }
+
+    /* Preset chips */
+    .preset { border-radius: 999px; padding: .45rem .9rem; font-size: .8rem; font-weight: 600; color: var(--white); background: rgba(252, 255, 255, .12); border: 1px solid rgba(252, 255, 255, .25); cursor: pointer; transition: background-color .2s ease, color .2s ease; }
+    .preset:hover { background: rgba(252, 255, 255, .22); }
+    .preset[aria-pressed="true"] { background: var(--white); color: var(--navy); border-color: transparent; }
+
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] .summary-chevron { transform: rotate(180deg); }
+
+    @media (max-width: 640px) {
+      .chart { --label-w: 0rem; }
+      .chart-row { grid-template-columns: 1fr; gap: .35rem; }
+      .chart-plot { left: .5rem; }
+      .chart-value span { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .chart-bar, .chart-avg, .chart { transition: none; }
+    }
+  </style>
 </head>
-<body class="min-h-screen bg-paper font-body text-ink antialiased">
-  <header class="border-b border-ink/10 bg-white">
-    <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-      <a href="../index.html"><img src="../logo.svg" alt="CareConnect home" class="h-8 w-auto sm:h-10"></a>
-      <div class="flex items-center gap-4">
-        <a href="profile.html" class="text-sm font-semibold text-pulse underline underline-offset-4">My profile</a>
-        <button id="logout" class="rounded-full border border-pulse px-4 py-2 text-sm font-semibold text-pulse hover:bg-pulse-soft">Log out</button>
-      </div>
+<body class="cc-page">
+  <header class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 pt-6 sm:px-8 sm:pt-8">
+    <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
+    <div class="flex items-center gap-2">
+      <a href="profile.html" class="cc-btn-ghost">My profile</a>
+      <button id="logout" class="cc-btn-ghost">Log out</button>
     </div>
   </header>
 
-  <main class="mx-auto max-w-5xl px-6 py-10">
-    <h1 class="font-display text-3xl font-medium sm:text-4xl">No-show rate</h1>
-    <p class="mt-2 max-w-2xl text-ink/75">Share of completed and missed visits that were no-shows. Cancelled appointments are left out. This report uses de-identified data, so no patient names appear.</p>
+  <main id="main" class="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
+    <h1 class="text-5xl font-light tracking-[-0.02em]">No-show rate</h1>
+    <p class="mt-3 max-w-2xl text-snow/80">How often booked patients didn’t show up, out of every visit that was completed or missed. Cancelled appointments are left out. De-identified data, so no patient names appear.</p>
 
-    <div class="mt-6 flex flex-wrap items-end gap-3">
-      <div>
-        <label for="groupBy" class="block text-sm font-semibold">Break down by</label>
-        <select id="groupBy" class="mt-1 rounded-lg border border-ink/20 bg-white px-3 py-2 focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
-          <option value="physician">Provider</option>
-          <option value="day">Day of week</option>
-          <option value="type">Appointment type</option>
-        </select>
+    <!-- Filters: one row, above everything they scope -->
+    <div class="glass mt-8 rounded-[24px] p-4 sm:p-5">
+      <div class="flex flex-wrap items-end gap-4">
+        <div>
+          <p class="cc-label" id="range-label">Date range</p>
+          <div class="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-labelledby="range-label">
+            <button type="button" class="preset" data-days="all" aria-pressed="true">All time</button>
+            <button type="button" class="preset" data-days="30" aria-pressed="false">Last 30 days</button>
+            <button type="button" class="preset" data-days="90" aria-pressed="false">Last 90 days</button>
+          </div>
+        </div>
+        <div>
+          <label for="from" class="cc-label">From</label>
+          <input id="from" type="date" class="cc-field cc-field-inline">
+        </div>
+        <div>
+          <label for="to" class="cc-label">To</label>
+          <input id="to" type="date" class="cc-field cc-field-inline">
+        </div>
+        <div>
+          <label for="groupBy" class="cc-label">Break down by</label>
+          <select id="groupBy" class="cc-field cc-field-inline">
+            <option value="physician">Provider</option>
+            <option value="day">Day of week</option>
+            <option value="type">Appointment type</option>
+          </select>
+        </div>
       </div>
-      <div>
-        <label for="from" class="block text-sm font-semibold">From</label>
-        <input id="from" type="date" class="mt-1 rounded-lg border border-ink/20 bg-white px-3 py-2">
-      </div>
-      <div>
-        <label for="to" class="block text-sm font-semibold">To</label>
-        <input id="to" type="date" class="mt-1 rounded-lg border border-ink/20 bg-white px-3 py-2">
-      </div>
-      <button id="run" class="rounded-full bg-pulse px-5 py-2 font-semibold text-white hover:bg-pulse-dark">Run report</button>
     </div>
 
-    <p id="message" role="status" class="mt-6 text-ink/75"></p>
+    <p id="message" role="status" class="mt-6 text-snow/85"></p>
 
-    <div class="mt-4 overflow-x-auto rounded-2xl border border-ink/10 bg-white shadow-sm">
-      <table id="report" class="w-full text-left text-sm" hidden>
-        <thead class="border-b border-ink/10 bg-pulse-soft">
-          <tr><th id="labelHead" class="p-3">Provider</th><th class="p-3">No-shows</th><th class="p-3">Total visits</th><th class="p-3">No-show rate</th><th class="p-3 w-1/3">Chart</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div id="results" hidden>
+      <!-- Headline numbers -->
+      <div class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="glass rounded-[20px] p-5 sm:col-span-2 lg:col-span-1">
+          <p class="text-sm text-snow/75">Overall no-show rate</p>
+          <p id="kpi-rate" class="mt-1 text-5xl font-semibold tracking-tight"></p>
+        </div>
+        <div class="glass rounded-[20px] p-5">
+          <p class="text-sm text-snow/75">Missed visits</p>
+          <p id="kpi-missed" class="mt-1 text-2xl font-semibold"></p>
+          <p class="mt-1 text-xs text-snow/65">patients who didn’t show</p>
+        </div>
+        <div class="glass rounded-[20px] p-5">
+          <p class="text-sm text-snow/75">Visits counted</p>
+          <p id="kpi-total" class="mt-1 text-2xl font-semibold"></p>
+          <p class="mt-1 text-xs text-snow/65">completed plus missed</p>
+        </div>
+        <div class="glass rounded-[20px] p-5">
+          <p class="text-sm text-snow/75">Highest no-show rate</p>
+          <p id="kpi-top" class="mt-1 text-xl font-semibold leading-tight"></p>
+          <p id="kpi-top-sub" class="mt-1 text-xs text-snow/65"></p>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <section class="glass mt-4 rounded-[24px] p-5 sm:p-7" aria-labelledby="chart-title">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 id="chart-title" class="text-xl font-light tracking-tight"></h2>
+            <p id="insight" class="mt-1 max-w-2xl text-sm text-snow/85"></p>
+          </div>
+          <ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-snow/80" aria-label="Chart key">
+            <li class="flex items-center gap-1.5"><span class="h-2.5 w-4 rounded-sm bg-snow" aria-hidden="true"></span>Above clinic average</li>
+            <li class="flex items-center gap-1.5"><span class="h-2.5 w-4 rounded-sm bg-snow/50" aria-hidden="true"></span>At or below average</li>
+            <li class="flex items-center gap-1.5"><span class="h-3 w-0.5 bg-navy" aria-hidden="true"></span>Clinic average</li>
+          </ul>
+        </div>
+        <div id="chart" class="chart mt-12 pb-8"></div>
+      </section>
+
+      <!-- Same numbers as a table -->
+      <details class="glass mt-4 rounded-[24px] px-2 py-1">
+        <summary class="flex items-center justify-between rounded-[20px] px-4 py-3 text-sm font-semibold">
+          View as table
+          <svg class="summary-chevron h-4 w-4 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z"/></svg>
+        </summary>
+        <div class="overflow-x-auto pb-2">
+          <table id="report" class="cc-table">
+            <thead>
+              <tr><th id="labelHead">Provider</th><th>No-shows</th><th>Total visits</th><th>No-show rate</th><th>vs. clinic average</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
     </div>
   </main>
+
+  <div id="tip" class="chart-tip" role="presentation" hidden></div>
 
   <script>
     if (requireLogin(['data_analyst'])) {
       const $ = (id) => document.getElementById(id);
       const HEADINGS = { physician: 'Provider', day: 'Day of week', type: 'Appointment type' };
+      const TITLES = { physician: 'No-show rate by provider', day: 'No-show rate by day of week', type: 'No-show rate by appointment type' };
+      const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const pct = (n) => (Math.round(n * 10) / 10).toFixed(1) + '%';
+      const pts = (n) => (n >= 0 ? '+' : '−') + Math.abs(Math.round(n * 10) / 10).toFixed(1) + ' pts';
+      const num = (n) => n.toLocaleString('en-US');
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      let requestId = 0;
+
       $('logout').addEventListener('click', logout);
-      $('run').addEventListener('click', run);
       $('groupBy').addEventListener('change', run);
 
+      // ---- Date presets ----
+      const presets = [...document.querySelectorAll('.preset')];
+      const markPreset = (btn) => presets.forEach((p) => p.setAttribute('aria-pressed', String(p === btn)));
+      presets.forEach((btn) => btn.addEventListener('click', () => {
+        if (btn.dataset.days === 'all') { $('from').value = ''; $('to').value = ''; }
+        else {
+          const to = new Date(), from = new Date();
+          from.setDate(from.getDate() - (Number(btn.dataset.days) - 1));
+          $('from').value = from.toLocaleDateString('en-CA');
+          $('to').value = to.toLocaleDateString('en-CA');
+        }
+        markPreset(btn);
+        run();
+      }));
+      // Picking a custom date clears the preset highlight; once both ends are set, rerun.
+      ['from', 'to'].forEach((id) => $(id).addEventListener('change', () => {
+        markPreset(!$('from').value && !$('to').value ? presets[0] : null);
+        if ((!$('from').value && !$('to').value) || ($('from').value && $('to').value)) run();
+      }));
+
       async function run() {
-        const body = document.querySelector('#report tbody');
-        body.innerHTML = '';
-        $('report').hidden = true;
         const from = $('from').value, to = $('to').value;
-        if ((from && !to) || (!from && to)) { $('message').textContent = 'Enter both a start and an end date, or leave both empty.'; return; }
+        if ((from && !to) || (!from && to)) { $('message').textContent = 'Pick both a start and an end date, or choose a preset.'; return; }
+        if (from && to && from > to) { $('message').textContent = 'The start date is after the end date. Swap them and run again.'; return; }
         const groupBy = $('groupBy').value;
         let url = '/reports/no-show-rate?groupBy=' + groupBy;
         if (from && to) url += '&from=' + from + '&to=' + to;
-        $('message').textContent = 'Loading…';
+
+        const id = ++requestId;
+        const firstLoad = $('results').hidden;
+        if (firstLoad) $('message').textContent = 'Loading…';
+        $('chart').classList.add('is-loading'); // keep the previous chart visible while refetching
         try {
           const data = await apiFetch(url);
-          $('labelHead').textContent = HEADINGS[groupBy];
-          if (!data.results.length) { $('message').textContent = 'No completed or missed visits in this range.'; return; }
+          if (id !== requestId) return; // a newer run finished first
+          $('chart').classList.remove('is-loading');
+          if (!data.results.length) {
+            $('results').hidden = true;
+            $('message').textContent = 'No completed or missed visits in this date range. Try a wider range.';
+            return;
+          }
           $('message').textContent = '';
-          const max = Math.max(...data.results.map(r => r.no_show_rate_pct), 1);
-          data.results.forEach(r => {
-            const row = body.insertRow();
-            row.className = 'border-b border-ink/10 last:border-0';
-            [r.label, r.no_shows, r.total_appointments, r.no_show_rate_pct + '%']
-              .forEach(v => { const c = row.insertCell(); c.className = 'p-3'; c.textContent = v; });
-            const cell = row.insertCell(); cell.className = 'p-3';
-            const bar = document.createElement('div');
-            bar.className = 'h-3 rounded-full bg-pulse';
-            bar.style.width = Math.max(2, (r.no_show_rate_pct / max) * 100) + '%';
-            bar.setAttribute('aria-label', r.no_show_rate_pct + ' percent');
-            cell.appendChild(bar);
-          });
-          $('report').hidden = false;
-        } catch (err) { $('message').textContent = err.message; }
+          render(data.results, groupBy);
+          $('results').hidden = false;
+        } catch (err) {
+          if (id !== requestId) return;
+          $('chart').classList.remove('is-loading');
+          $('message').textContent = err.message;
+        }
       }
+
+      function render(results, groupBy) {
+        const rows = results.slice();
+        // Days read best in calendar order; everything else is ranked worst-first.
+        if (groupBy === 'day') rows.sort((a, b) => DAYS.indexOf(a.label) - DAYS.indexOf(b.label));
+        else rows.sort((a, b) => b.no_show_rate_pct - a.no_show_rate_pct);
+
+        const missed = rows.reduce((s, r) => s + r.no_shows, 0);
+        const total = rows.reduce((s, r) => s + r.total_appointments, 0);
+        const avg = total ? (missed / total) * 100 : 0;
+        const top = rows.reduce((a, b) => (b.no_show_rate_pct > a.no_show_rate_pct ? b : a));
+        const low = rows.reduce((a, b) => (b.no_show_rate_pct < a.no_show_rate_pct ? b : a));
+
+        // Headline numbers
+        $('kpi-rate').textContent = pct(avg);
+        $('kpi-missed').textContent = num(missed);
+        $('kpi-total').textContent = num(total);
+        $('kpi-top').textContent = top.label;
+        $('kpi-top-sub').textContent = pct(top.no_show_rate_pct) + ', ' + pts(top.no_show_rate_pct - avg) + ' vs. average';
+
+        // Title + one-sentence takeaway
+        $('chart-title').textContent = TITLES[groupBy];
+        $('insight').textContent = rows.length > 1
+          ? top.label + ' has the highest no-show rate at ' + pct(top.no_show_rate_pct) + ', ' +
+            (Math.round((top.no_show_rate_pct - avg) * 10) / 10).toFixed(1) + ' points above the clinic average of ' + pct(avg) +
+            '. ' + low.label + ' is lowest at ' + pct(low.no_show_rate_pct) + '.'
+          : top.label + ': ' + pct(top.no_show_rate_pct) + ' no-show rate.';
+
+        // Scale: round the axis up to a clean step, with ~20% headroom so the
+        // longest bar's value label fits inside the panel.
+        const step = top.no_show_rate_pct > 40 ? 10 : 5;
+        const max = Math.max(step, Math.ceil((Math.max(top.no_show_rate_pct, avg) * 1.2) / step) * step);
+        const x = (v) => (v / max) * 100;
+
+        const chart = $('chart');
+        chart.innerHTML = '';
+        const plot = el('div', 'chart-plot');
+        for (let t = 0; t <= max; t += step) {
+          const g = el('div', 'chart-grid'); g.style.left = x(t) + '%'; plot.append(g);
+          const tick = el('span', 'chart-tick', t + '%'); tick.style.left = x(t) + '%'; plot.append(tick);
+        }
+        const avgLine = el('div', 'chart-avg');
+        avgLine.style.left = x(avg) + '%';
+        avgLine.append(el('span', 'chart-avg-label', 'Avg ' + pct(avg)));
+        plot.append(avgLine);
+        chart.append(plot);
+
+        rows.forEach((r) => {
+          const high = r.no_show_rate_pct > avg + 0.05;
+          const diff = r.no_show_rate_pct - avg;
+          const row = el('div', 'chart-row');
+          row.tabIndex = 0;
+          row.setAttribute('aria-label', r.label + ': ' + pct(r.no_show_rate_pct) + ' no-show rate, ' + r.no_shows + ' of ' + r.total_appointments + ' visits missed, ' + pts(diff) + ' versus the clinic average.');
+          row.append(el('div', 'chart-label', r.label));
+          const track = el('div', 'chart-track');
+          const bar = el('div', 'chart-bar' + (high ? ' is-high' : ''));
+          bar.style.width = '0%';
+          const value = el('div', 'chart-value');
+          value.append(el('b', null, pct(r.no_show_rate_pct)), el('span', null, r.no_shows + ' of ' + num(r.total_appointments)));
+          value.style.left = x(r.no_show_rate_pct) + '%';
+          track.append(bar, value);
+          row.append(track);
+          chart.append(row);
+          requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = x(r.no_show_rate_pct) + '%'; }));
+
+          const tipData = { r, diff };
+          row.addEventListener('pointermove', (e) => showTip(tipData, e.clientX, e.clientY));
+          row.addEventListener('pointerleave', hideTip);
+          row.addEventListener('focus', () => { const b = row.getBoundingClientRect(); showTip(tipData, b.left + b.width * 0.6, b.top); });
+          row.addEventListener('blur', hideTip);
+        });
+
+        // Table view (same numbers, no hover needed)
+        $('labelHead').textContent = HEADINGS[groupBy];
+        const body = document.querySelector('#report tbody');
+        body.innerHTML = '';
+        rows.forEach((r) => {
+          const tr = body.insertRow();
+          [r.label, num(r.no_shows), num(r.total_appointments), pct(r.no_show_rate_pct), pts(r.no_show_rate_pct - avg)]
+            .forEach((v) => { tr.insertCell().textContent = v; });
+        });
+      }
+
+      // ---- Tooltip ----
+      const tip = $('tip');
+      function showTip({ r, diff }, cx, cy) {
+        tip.innerHTML = '';
+        tip.append(
+          el('strong', null, pct(r.no_show_rate_pct)),
+          el('p', null, r.label),
+          el('p', null, num(r.no_shows) + ' missed of ' + num(r.total_appointments) + ' visits'),
+          el('p', null, pts(diff) + ' vs. clinic average')
+        );
+        tip.hidden = false;
+        const w = tip.offsetWidth, h = tip.offsetHeight;
+        tip.style.left = Math.min(cx + 14, innerWidth - w - 8) + 'px';
+        tip.style.top = Math.max(8, cy - h - 12) + 'px';
+      }
+      function hideTip() { tip.hidden = true; }
+
       run();
     }
   </script>

@@ -2,12 +2,13 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/appointments.controller');
 const { requireAuth } = require('../middleware/auth');
+const { requireRole } = require('../middleware/requireRole');
 
 // Search open slots by physician/date/specialty: sprint log tasks 304-308
 router.get('/search', requireAuth, controller.searchOpenSlots);
 
 // Patient's own upcoming appointments: sprint log tasks 327-330
-router.get('/mine', requireAuth, controller.getMyAppointments);
+router.get('/mine', requireAuth, requireRole('patient'), controller.getMyAppointments);
 
 // Book: sprint log tasks 310-314, 477-481 (Receptionist on patient's behalf)
 router.post('/', requireAuth, controller.bookAppointment);
