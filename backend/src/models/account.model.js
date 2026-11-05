@@ -2,8 +2,10 @@ const db = require('../config/db');
 
 // One table for all roles with a `role` column. See db/migrations/001_init.sql.
 
+// Emails are matched case-insensitively and ignoring stray spaces, so
+// "Demo.Nurse@Example.com " finds demo.nurse@example.com.
 async function findByEmail(email) {
-  const result = await db.query('SELECT * FROM accounts WHERE email = $1', [email]);
+  const result = await db.query('SELECT * FROM accounts WHERE lower(email) = lower(trim($1))', [String(email)]);
   return result.rows[0] || null;
 }
 
@@ -17,7 +19,7 @@ async function create({ email, passwordHash, role, name, phone }) {
     `INSERT INTO accounts (email, password_hash, role, name, phone)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id, email, role, name, phone, status, created_at`,
-    [email, passwordHash, role, name, phone || null]
+    [String(email).trim().toLowerCase(), passwordHash, role, name, phone || null]
   );
   return result.rows[0];
 }
