@@ -8,6 +8,7 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "migrate": "node scripts/migrate.js",
+    "seed:demo": "node scripts/seed-demo.js",
     "build": "node -e \"require('./src/app'); console.log('Build OK: app module graph loads cleanly')\""
   },
   "dependencies": {
