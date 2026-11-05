@@ -20,6 +20,40 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
+// Where each role lands after logging in. Roles without their own page yet go to profile.
+const HOME_PAGE = {
+  nurse: 'nurse-schedule.html',
+  physician: 'nurse-schedule.html',
+  data_analyst: 'analyst-no-show.html'
+};
+function homeFor(role) {
+  return HOME_PAGE[role] || 'profile.html';
+}
+
+// Wire a login <form> to POST /auth/login, save the session, and redirect by role.
+// `errorEl` is where to show a failed-login message.
+function setupLoginForm(form, errorEl) {
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.hidden = true;
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      const data = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email: form.email.value.trim(), password: form.password.value })
+      });
+      sessionStorage.setItem('token', data.token);
+      sessionStorage.setItem('role', data.account.role);
+      location.href = homeFor(data.account.role);
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.hidden = false;
+      button.disabled = false;
+    }
+  });
+}
+
 // Send people without the right role back to the login page.
 function requireLogin(roles) {
   const role = sessionStorage.getItem('role');

@@ -3,71 +3,249 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect | My profile</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <script>
-    // Brand tokens: same block as the other pages
-    tailwind.config = {
-      theme: { extend: {
-        fontFamily: { display: ["Josefin Sans", "system-ui", "sans-serif"], body: ["Source Sans 3", "system-ui", "sans-serif"] },
-        colors: { ink: "#14212B", paper: "#F8FAFA", pulse: { DEFAULT: "#0B6E6E", dark: "#085555", soft: "#E7F2F1" } }
-      } }
-    }
-  </script>
-  <title>CareConnect | My profile</title>
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/theme.css">
   <script src="../js/api.js"></script>
+  <style>
+    /* Patients: appointments are the main column, contact details sit beside them */
+    @media (min-width: 1024px) {
+      .layout.is-patient { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    }
+    .layout:not(.is-patient) { max-width: 28rem; }
+
+    .avatar { display: flex; align-items: center; justify-content: center; flex: none; width: 2.75rem; height: 2.75rem; border-radius: 999px; font-size: .85rem; font-weight: 700; letter-spacing: .02em; color: var(--navy); background: var(--white); }
+    .date-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 3.5rem; height: 3.75rem; border-radius: 14px; background: rgba(252, 255, 255, .16); border: 1px solid rgba(252, 255, 255, .3); line-height: 1; }
+    .date-tile small { font-size: .65rem; font-weight: 600; color: rgba(252, 255, 255, .75); }
+    .date-tile b { margin-top: .25rem; font-size: 1.35rem; font-weight: 600; }
+    .detail { display: flex; align-items: center; gap: .85rem; }
+    .detail-icon { display: flex; align-items: center; justify-content: center; flex: none; width: 2.75rem; height: 2.75rem; border-radius: 999px; background: rgba(252, 255, 255, .14); border: 1px solid rgba(252, 255, 255, .25); }
+    .detail-icon svg { width: 1.15rem; height: 1.15rem; }
+
+    /* Entrance: the next-appointment card settles in once */
+    .rise { animation: rise .6s cubic-bezier(.22, 1, .36, 1) both; }
+    .rise-2 { animation-delay: .08s; }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
+  </style>
 </head>
-<body class="min-h-screen bg-paper font-body text-ink antialiased">
-  <header class="border-b border-ink/10 bg-white">
-    <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-      <a href="../index.html"><img src="../logo.svg" alt="CareConnect home" class="h-8 w-auto sm:h-10"></a>
-      <div class="flex items-center gap-4">
-        <a id="back" href="staff-login.html" class="text-sm font-semibold text-pulse underline underline-offset-4">Back</a>
-        <button id="logout" class="rounded-full border border-pulse px-4 py-2 text-sm font-semibold text-pulse hover:bg-pulse-soft">Log out</button>
-      </div>
+<body class="cc-page">
+  <header class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 pt-6 sm:px-8 sm:pt-8">
+    <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
+    <div class="flex items-center gap-2">
+      <a id="back" href="staff-login.html" class="cc-btn-ghost">Back</a>
+      <button id="logout" class="cc-btn-ghost">Log out</button>
     </div>
   </header>
 
-  <main class="mx-auto max-w-md px-6 py-12 sm:py-16">
-    <h1 class="font-display text-4xl font-medium">My profile</h1>
-    <p class="mt-3 text-ink/75">Keep your name and phone number up to date.</p>
+  <main id="main" class="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
+    <h1 id="title" class="text-5xl font-light tracking-[-0.02em]">My profile</h1>
+    <p id="subtitle" class="mt-3 text-snow/80">Keep your name and phone number up to date.</p>
 
-    <form id="form" novalidate class="mt-8 space-y-5 rounded-2xl border border-ink/10 bg-white p-6 shadow-sm sm:p-8">
-      <p id="msg" role="status" hidden class="rounded-lg border px-4 py-3 text-sm"></p>
-      <div>
-        <label for="name" class="block text-sm font-semibold">Name</label>
-        <input id="name" type="text" required class="mt-2 block w-full rounded-lg border border-ink/20 px-4 py-3 focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
-      </div>
-      <div>
-        <label for="phone" class="block text-sm font-semibold">Phone number</label>
-        <input id="phone" type="tel" autocomplete="tel" placeholder="(555) 123-4567" class="mt-2 block w-full rounded-lg border border-ink/20 px-4 py-3 focus:border-pulse focus:outline-none focus:ring-2 focus:ring-pulse/30">
-      </div>
-      <dl class="grid grid-cols-3 gap-y-2 text-sm">
-        <dt class="font-semibold">Email</dt><dd id="email" class="col-span-2 text-ink/75"></dd>
-        <dt class="font-semibold">Role</dt><dd id="role" class="col-span-2 text-ink/75"></dd>
-      </dl>
-      <button type="submit" class="w-full rounded-full bg-pulse px-6 py-3 font-semibold text-white hover:bg-pulse-dark">Save changes</button>
-    </form>
+    <div id="layout" class="layout mt-8">
+      <!-- Patients only: upcoming appointments -->
+      <section id="appts" hidden aria-labelledby="next-heading" class="space-y-4">
+        <div id="next-card"></div>
+        <div id="later" hidden>
+          <h2 class="mb-3 mt-8 text-lg font-light">Later appointments</h2>
+          <ul id="later-list" class="glass divide-y divide-snow/15 rounded-[24px] px-2"></ul>
+        </div>
+      </section>
+
+      <!-- Contact details (everyone) -->
+      <section aria-labelledby="contact-heading" class="mt-8 lg:mt-0">
+        <h2 id="contact-heading" class="mb-3 text-lg font-light" hidden>Contact details</h2>
+        <form id="form" novalidate class="glass space-y-5 rounded-[28px] p-6 sm:p-8">
+          <p id="msg" role="status" hidden class="cc-alert"></p>
+          <div>
+            <label for="name" class="cc-label">Name</label>
+            <input id="name" type="text" required class="cc-field">
+          </div>
+          <div>
+            <label for="phone" class="cc-label">Phone number</label>
+            <input id="phone" type="tel" autocomplete="tel" placeholder="(555) 123-4567" class="cc-field">
+          </div>
+          <dl class="grid grid-cols-3 gap-y-2 text-sm">
+            <dt class="font-semibold">Email</dt><dd id="email" class="col-span-2 break-all text-snow/80"></dd>
+            <dt class="font-semibold">Role</dt><dd id="role" class="col-span-2 text-snow/80"></dd>
+          </dl>
+          <button type="submit" class="cc-btn w-full">Save changes</button>
+        </form>
+      </section>
+    </div>
   </main>
 
   <script>
     if (requireLogin()) {
       const $ = (id) => document.getElementById(id);
-      const ROLE_LABEL = { physician: 'Physician', physician_assistant: 'Physician assistant', nurse: 'Nurse', receptionist: 'Receptionist', data_analyst: 'Data analyst', process_manager: 'Process manager' };
-      const HOME = { nurse: 'nurse-schedule.html', data_analyst: 'analyst-no-show.html' };
+      const ROLE_LABEL = { patient: 'Patient', physician: 'Physician', physician_assistant: 'Physician assistant', nurse: 'Nurse', receptionist: 'Receptionist', data_analyst: 'Data analyst', process_manager: 'Process manager' };
+      const CLINIC = 'CareConnect Clinic, Suite 200';
+      const role = sessionStorage.getItem('role');
+      const home = homeFor(role);
+      const isPatient = role === 'patient';
 
       $('logout').addEventListener('click', logout);
-      $('back').href = HOME[sessionStorage.getItem('role')] || 'staff-login.html';
+      if (home === 'profile.html') $('back').hidden = true; // no dashboard for this role yet
+      else $('back').href = home;
 
       function say(text, ok) {
         const m = $('msg');
         m.textContent = text;
         m.hidden = false;
-        m.className = 'rounded-lg border px-4 py-3 text-sm ' + (ok
-          ? 'border-pulse/30 bg-pulse-soft'
-          : 'border-[#F4B6B0] bg-[#FEF3F2] text-[#B42318]');
+        m.className = 'cc-alert' + (ok ? '' : ' cc-alert-error');
+      }
+
+      // ---------- helpers ----------
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      const svg = (paths) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '1.7'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = paths; return s; };
+      const ICONS = {
+        clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        type: '<path d="M9 4h6M9 4a1 1 0 0 0-1 1v1h8V5a1 1 0 0 0-1-1M8 6H6.5A1.5 1.5 0 0 0 5 7.5v12A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-12A1.5 1.5 0 0 0 17.5 6H16"/><path d="M9 12h6M9 16h4"/>',
+        pin: '<path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/>',
+        cal: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M12 13v4M10 15h4"/>'
+      };
+      const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+      const to12h = (t) => { const [h, m] = t.split(':').map(Number); return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+      const length = (a) => {
+        const mins = toMin(a.end_time) - toMin(a.start_time);
+        if (mins < 60) return mins + ' min';
+        return Math.floor(mins / 60) + ' hr' + (mins % 60 ? ' ' + (mins % 60) + ' min' : '');
+      };
+      const dateOf = (a) => new Date(a.date + 'T12:00:00');
+      const providerLine = (a) => a.provider_name + (a.provider_specialty ? ' · ' + a.provider_specialty : '');
+      const initials = (name) => name.replace(/^Dr\.?\s+/i, '').split(',')[0].split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+      function countdown(a) {
+        const today = new Date(); today.setHours(12, 0, 0, 0);
+        const days = Math.round((dateOf(a) - today) / 864e5);
+        if (days <= 0) return 'Today';
+        if (days === 1) return 'Tomorrow';
+        if (days < 7) return 'In ' + days + ' days';
+        const weeks = Math.round(days / 7);
+        return 'In ' + weeks + ' week' + (weeks > 1 ? 's' : '');
+      }
+
+      // Calendar file for the patient's own device. Scheduling details only (no visit reason).
+      function downloadIcs(a) {
+        const stamp = (date, time) => date.replace(/-/g, '') + 'T' + time.replace(':', '') + '00';
+        const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+        const ics = [
+          'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CareConnect//Appointments//EN', 'BEGIN:VEVENT',
+          'UID:careconnect-' + a.id + '@careconnect', 'DTSTAMP:' + now,
+          'DTSTART:' + stamp(a.date, a.start_time), 'DTEND:' + stamp(a.date, a.end_time),
+          'SUMMARY:Appointment with ' + a.provider_name.replace(/[,;]/g, '\\$&'),
+          'LOCATION:' + CLINIC.replace(/[,;]/g, '\\$&'),
+          'END:VEVENT', 'END:VCALENDAR'
+        ].join('\r\n');
+        const link = el('a');
+        link.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+        link.download = 'careconnect-appointment-' + a.date + '.ics';
+        document.body.append(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      }
+
+      function detail(icon, main, sub) {
+        const row = el('div', 'detail');
+        const i = el('span', 'detail-icon'); i.append(svg(ICONS[icon]));
+        const text = el('div');
+        text.append(el('p', 'font-medium', main));
+        if (sub) text.append(el('p', 'text-sm text-snow/70', sub));
+        row.append(i, text);
+        return row;
+      }
+
+      // ---------- Next appointment: the big card ----------
+      function nextCard(a) {
+        const card = el('article', 'glass rise overflow-hidden rounded-[28px]');
+        card.setAttribute('aria-labelledby', 'next-heading');
+
+        const top = el('div', 'p-6 sm:p-8');
+        const head = el('div', 'flex items-center justify-between gap-3');
+        head.append(el('h2', 'text-sm font-semibold text-snow/80', 'Next appointment'));
+        head.firstChild.id = 'next-heading';
+        head.append(el('span', 'rounded-full bg-snow px-3 py-1 text-xs font-bold text-navy', countdown(a)));
+        top.append(head);
+
+        const d = dateOf(a);
+        top.append(
+          el('p', 'mt-4 text-[clamp(2rem,4.5vw,2.75rem)] font-light leading-[1.05] tracking-[-0.02em]', d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })),
+          el('p', 'mt-2 text-lg text-snow/85', to12h(a.start_time) + ' – ' + to12h(a.end_time) + '  ·  ' + length(a))
+        );
+        const ticks = el('div', 'ticks mt-6'); ticks.setAttribute('aria-hidden', 'true');
+        top.append(ticks);
+
+        const details = el('div', 'grid gap-5 border-t border-snow/15 p-6 sm:grid-cols-2 sm:p-8');
+        const who = el('div', 'detail sm:col-span-2');
+        const av = el('span', 'avatar', initials(a.provider_name)); av.setAttribute('aria-hidden', 'true');
+        const whoText = el('div');
+        whoText.append(el('p', 'font-medium', a.provider_name), el('p', 'text-sm text-snow/70', a.provider_specialty || 'Your provider'));
+        who.append(av, whoText);
+        details.append(who, detail('type', a.appointment_type, 'Appointment type'), detail('pin', 'Suite 200', 'CareConnect Clinic'));
+
+        const actions = el('div', 'flex flex-wrap items-center gap-3 border-t border-snow/15 px-6 py-5 sm:px-8');
+        const add = el('button', 'cc-btn py-2.5');
+        add.type = 'button';
+        add.append(svg(ICONS.cal), document.createTextNode('Add to calendar'));
+        add.firstChild.setAttribute('width', '18'); add.firstChild.setAttribute('height', '18');
+        add.addEventListener('click', () => downloadIcs(a));
+        actions.append(add, el('p', 'text-sm text-snow/75', 'Need to change it? Call the front desk.'));
+
+        card.append(top, details, actions);
+        return card;
+      }
+
+      // ---------- Later appointments: compact rows ----------
+      function laterRow(a) {
+        const li = el('li', 'flex items-center gap-4 px-4 py-4');
+        const d = dateOf(a);
+        const tile = el('div', 'date-tile');
+        tile.setAttribute('aria-hidden', 'true');
+        tile.append(el('small', null, d.toLocaleDateString('en-US', { month: 'short' })), el('b', null, d.getDate()));
+        const body = el('div', 'min-w-0 flex-1');
+        body.append(
+          el('p', 'font-medium', d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })),
+          el('p', 'truncate text-sm text-snow/75', a.appointment_type + ' with ' + a.provider_name)
+        );
+        const right = el('div', 'text-right');
+        right.append(el('p', 'text-sm font-medium', to12h(a.start_time)), el('p', 'text-xs text-snow/65', length(a)));
+        li.append(tile, body, right);
+        return li;
+      }
+
+      function emptyCard() {
+        const card = el('article', 'glass rise rounded-[28px] p-6 sm:p-8');
+        const h = el('h2', 'text-sm font-semibold text-snow/80', 'Next appointment'); h.id = 'next-heading';
+        card.append(h, el('p', 'mt-3 text-2xl font-light', 'Nothing booked right now'), el('p', 'mt-2 text-sm text-snow/80', 'Call the front desk to book your next visit. It will show up here once it’s scheduled.'));
+        return card;
+      }
+
+      async function showAppointments() {
+        $('appts').hidden = false;
+        try {
+          const { appointments } = await apiFetch('/appointments/mine');
+          if (!appointments.length) { $('next-card').append(emptyCard()); return; }
+          $('next-card').append(nextCard(appointments[0]));
+          const rest = appointments.slice(1);
+          if (rest.length) {
+            rest.forEach((a) => $('later-list').append(laterRow(a)));
+            $('later').hidden = false;
+            $('later').classList.add('rise', 'rise-2');
+          }
+        } catch (err) {
+          const card = el('article', 'glass rounded-[28px] p-6');
+          card.append(el('p', 'text-sm', 'Your appointments couldn’t be loaded. Refresh the page to try again.'));
+          $('next-card').append(card);
+        }
+      }
+
+      if (isPatient) {
+        $('layout').classList.add('is-patient');
+        $('contact-heading').hidden = false;
+        $('subtitle').textContent = 'Here’s what’s coming up.';
+        showAppointments();
       }
 
       apiFetch('/accounts/me').then(({ account }) => {
@@ -75,6 +253,7 @@
         $('phone').value = account.phone || '';
         $('email').textContent = account.email;
         $('role').textContent = ROLE_LABEL[account.role] || account.role;
+        if (isPatient && account.name) $('title').textContent = 'Hi, ' + account.name.split(' ')[0];
       }).catch(err => say(err.message, false));
 
       $('form').addEventListener('submit', async (e) => {
@@ -84,6 +263,7 @@
         try {
           const { account } = await apiFetch('/accounts/me', { method: 'PUT', body: JSON.stringify({ name, phone }) });
           sessionStorage.setItem('name', account.name);
+          if (isPatient) $('title').textContent = 'Hi, ' + account.name.split(' ')[0];
           say('Profile saved.', true);
         } catch (err) { say(err.message, false); }
       });
