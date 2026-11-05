@@ -6,70 +6,425 @@
   <title>CareConnect | Home</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script>
-    // Brand tokens: edit colors and fonts here (same block is in all four files)
+    // Home page tokens. The other pages still use the teal brand block.
     tailwind.config = {
       theme: { extend: {
-        fontFamily: {
-          display: ['"Josefin Sans"', 'system-ui', 'sans-serif'],
-          body: ['"Source Sans 3"', 'system-ui', 'sans-serif']
-        },
+        fontFamily: { sans: ['Manrope', 'system-ui', 'sans-serif'] },
         colors: {
-          ink: '#14212B',
-          paper: '#F8FAFA',
-          pulse: { DEFAULT: '#0B6E6E', dark: '#085555', soft: '#E7F2F1' }
+          sky: '#0593C6',   // primary
+          snow: '#FCFFFF',  // text, light surfaces
+          pink: '#D83995',  // accent
+          navy: '#062A3D'   // contrast, shadows
         }
       } }
     }
   </script>
   <style>
-    /* The heartbeat line from the logo draws itself once on page load */
-    .pulse-draw { stroke-dasharray: 1; animation: draw 1.8s ease-out both; }
-    @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-    @media (prefers-reduced-motion: reduce) { .pulse-draw { animation: none; } }
+    :root {
+      --sky-blue: #0593C6;
+      --white: #FCFFFF;
+      --hot-pink: #D83995;
+      --navy: #062A3D;
+      --glass: rgba(252, 255, 255, 0.14);
+      --glass-strong: rgba(252, 255, 255, 0.22);
+      --glass-border: rgba(252, 255, 255, 0.22);
+
+      /* ---- Tweak the background here ----
+         Each blob's position is a percentage of the hero (x y).
+         Size is width/height of the blob. Blur controls how soft it is. */
+      --blob-pink-pos: 58% 42%;
+      --blob-white-pos: 62% 36%;
+      --blob-blur: 56px;
+    }
+
+    /* ---------- Hero background ---------- */
+    .hero-bg { background: var(--sky-blue); }
+    .hero-bg::before { /* deep-blue vignette so edges and corners don't wash out */
+      content: ""; position: absolute; inset: 0; z-index: -20; /* below the blobs */
+      background:
+        radial-gradient(120% 90% at 0% 100%, rgba(6, 42, 61, .55), transparent 55%),
+        radial-gradient(80% 70% at 100% 0%, rgba(6, 42, 61, .35), transparent 60%),
+        linear-gradient(180deg, #0a86b8 0%, #0593C6 45%, #0b7fb3 100%);
+    }
+    .blob { position: absolute; border-radius: 50%; filter: blur(var(--blob-blur)); will-change: transform; }
+    /* The "figure": a tall pink shape, a white-hot core, and a darker blue shoulder */
+    .blob-pink  { width: 44vw; height: 78vh; left: 36%; top: 6%;
+                  background: radial-gradient(closest-side at var(--blob-pink-pos), #E24FA8 0%, #D83995 45%, rgba(216,57,149,0) 100%);
+                  animation: drift-a 26s ease-in-out infinite alternate; }
+    .blob-white { width: 26vw; height: 46vh; left: 45%; top: 20%;
+                  background: radial-gradient(closest-side at var(--blob-white-pos), #FCFFFF 0%, rgba(255,214,236,.9) 35%, rgba(252,255,255,0) 100%);
+                  animation: drift-b 22s ease-in-out infinite alternate; }
+    .blob-navy  { width: 26vw; height: 70vh; left: 56%; top: -4%;
+                  background: radial-gradient(closest-side, rgba(10, 40, 120, .75), rgba(10,40,120,0));
+                  animation: drift-c 30s ease-in-out infinite alternate; }
+    .blob-coral { width: 30vw; height: 30vh; left: 40%; top: 58%;
+                  background: radial-gradient(closest-side, rgba(255, 110, 120, .85), rgba(255,110,120,0));
+                  animation: drift-b 28s ease-in-out infinite alternate-reverse; }
+    @keyframes drift-a { to { transform: translate(-3vw, 3vh) scale(1.06); } }
+    @keyframes drift-b { to { transform: translate(4vw, -4vh) scale(.94); } }
+    @keyframes drift-c { to { transform: translate(-5vw, 5vh); } }
+
+    /* Fluted / reeded glass: each 8px rib is lit on its left edge and shaded on its right */
+    .fluted {
+      position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(90deg,
+        rgba(252,255,255,.16) 0px,
+        rgba(252,255,255,.05) 2px,
+        rgba(252,255,255,0) 4px,
+        rgba(6,42,61,.10) 7px,
+        rgba(252,255,255,.16) 8px);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    /* Darkens the bottom-left so white text stays readable over the pink */
+    .legibility { position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(20deg, rgba(6,42,61,.55) 0%, rgba(6,42,61,.25) 30%, rgba(6,42,61,0) 55%),
+                  linear-gradient(0deg, rgba(6,42,61,.35) 0%, rgba(6,42,61,0) 22%); }
+
+    /* ---------- Glass surfaces ---------- */
+    .glass {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+    }
+    .glass-strong { background: var(--glass-strong); }
+    /* Little ruler ticks at the bottom of each appointment card */
+    .ticks { height: 14px; opacity: .45;
+      background: repeating-linear-gradient(90deg, rgba(252,255,255,.9) 0 1px, transparent 1px 6px);
+      -webkit-mask: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+              mask: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+
+    /* ---------- CTAs ---------- */
+    .cta { transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease; }
+    .cta:hover { transform: translateY(-2px); box-shadow: 0 12px 32px -8px rgba(216,57,149,.75); }
+    .cta-link:hover { transform: translateY(-2px); text-shadow: 0 0 18px rgba(216,57,149,.9); }
+
+    /* ---------- Dropdown panels + menu drawer ----------
+       Open: soft drop and fade (ease-out). Close: quicker fade back up.
+       visibility is delayed on close so the fade-out actually plays. */
+    :root { --ease-out: cubic-bezier(.22, 1, .36, 1); }
+    .menu-panel, .drawer {
+      transition: opacity .32s var(--ease-out), transform .32s var(--ease-out), visibility 0s;
+    }
+    .menu-panel { transform: translate(-50%, 0) scale(1); transform-origin: top center; }
+    .drawer { transform-origin: top right; }
+    .menu-panel[hidden], .drawer[hidden] {
+      display: block; visibility: hidden; opacity: 0; pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s;
+    }
+    .menu-panel[hidden] { transform: translate(-50%, -10px) scale(.985); }
+    .drawer[hidden] { transform: translateY(-8px) scale(.97); }
+    /* Moving from one open menu to another: crossfade in place, no re-drop */
+    #site-header[data-switching] .menu-panel,
+    #site-header[data-switching] .menu-panel[hidden] { transform: translate(-50%, 0) scale(1); transition-duration: .22s, .22s, 0s; }
+    /* Panel content settles in just after the panel itself */
+    .menu-panel > div { transition: opacity .35s ease .05s, transform .45s var(--ease-out) .05s; }
+    .menu-panel[hidden] > div { opacity: 0; transform: translateY(6px); transition: opacity .12s ease, transform .12s ease; }
+
+    .menu-chevron { transition: transform .3s var(--ease-out); }
+    [aria-expanded="true"] .menu-chevron { transform: rotate(180deg); }
+
+    /* Dimmed backdrop fades instead of popping */
+    #menu-scrim { opacity: 0; pointer-events: none; transition: opacity .3s ease; }
+    #menu-scrim.is-open { opacity: 1; pointer-events: auto; }
+
+    /* Glass highlight that glides between nav-pill items */
+    .nav-glider {
+      position: absolute; top: 4px; bottom: 4px; left: 0; width: 0;
+      border-radius: 999px; background: rgba(252, 255, 255, .18); opacity: 0; pointer-events: none;
+      transition: transform .38s var(--ease-out), width .38s var(--ease-out), opacity .2s ease;
+    }
+    nav[aria-label="Main"] li > a, nav[aria-label="Main"] li > button { position: relative; }
+
+    .no-scrollbar { scrollbar-width: none; } .no-scrollbar::-webkit-scrollbar { display: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .blob { animation: none; }
+      .cta, .menu-panel, .menu-panel > div, .drawer, .menu-chevron, .nav-glider, #menu-scrim { transition: none !important; }
+      .cta:hover, .cta-link:hover { transform: none; }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-paper font-body text-ink antialiased">
+<body class="bg-snow font-sans text-snow antialiased">
 
-  <!-- Header: logo (links home) on the left, Log in on the right -->
-  <header class="border-b border-ink/10 bg-white">
-    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-      <a href="index.html" class="rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pulse">
-        <img src="logo.svg" alt="CareConnect home" class="h-8 w-auto sm:h-10">
-      </a>
-      <a href="login.html" class="rounded-full bg-pulse px-5 py-2 text-sm font-semibold text-white transition hover:bg-pulse-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-pulse">Log in</a>
-    </div>
-  </header>
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-snow focus:px-4 focus:py-2 focus:text-navy">Skip to content</a>
 
-  <main id="main" class="pb-20">
-    <!-- Hero -->
-    <section class="mx-auto max-w-3xl px-6 pt-16 text-center sm:pt-24">
-      <h1 class="font-display text-4xl font-medium leading-tight sm:text-5xl md:text-6xl">Every appointment, on the same page.</h1>
-      <p class="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-ink/75">CareConnect gives patients, physicians, and clinic staff one shared schedule to book from, manage, and trust.</p>
-    </section>
+  <!-- Page frame: the hero sits inside it with rounded corners -->
+  <div class="p-2 sm:p-3">
+    <section id="hero" class="hero-bg relative isolate flex min-h-[calc(100svh-1rem)] flex-col overflow-hidden rounded-[1.75rem] sm:min-h-[calc(100svh-1.5rem)]">
 
-    <!-- Heartbeat line, echoing the logo -->
-    <svg class="mx-auto mt-12 w-full max-w-4xl px-6" viewBox="0 0 1200 80" fill="none" aria-hidden="true">
-      <path class="pulse-draw" pathLength="1" d="M0 40 H520 L532 33 L546 40 H590 L616 4 L640 74 L654 36 H1200" stroke="#0B6E6E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-
-    <!-- CENTER SPACE: replace the placeholder block below with your image or site information -->
-    <section class="mx-auto mt-10 max-w-4xl px-6" aria-label="About CareConnect">
-      <!--
-        To use an image, delete the div below and paste:
-        <img src="your-image.jpg" alt="Describe the image" class="aspect-video w-full rounded-2xl object-cover">
-      -->
-      <div class="flex aspect-video w-full items-center justify-center rounded-2xl border border-dashed border-pulse/50 bg-pulse-soft p-8 text-center">
-        <div>
-          <p class="font-display text-xl font-medium sm:text-2xl">Placeholder for website information</p>
-          <p class="mx-auto mt-2 max-w-md text-sm text-ink/70"></p>
-          <!-- Swap this block for a screenshot of the booking page, a photo of your team, or a short description of what CareConnect does. -->
-        </div>
+      <!-- Background layers -->
+      <div class="absolute inset-0 -z-10" aria-hidden="true">
+        <div class="blob blob-navy"></div>
+        <div class="blob blob-pink"></div>
+        <div class="blob blob-coral"></div>
+        <div class="blob blob-white"></div>
+        <div class="fluted"></div>
+        <div class="legibility"></div>
       </div>
-    </section>
-  </main>
 
+      <!-- Dims the hero behind an open menu -->
+      <div id="menu-scrim" class="absolute inset-0 z-20 bg-navy/30" aria-hidden="true"></div>
+
+      <!-- ============ Navbar ============ -->
+      <header id="site-header" class="relative z-30 flex items-center justify-between gap-4 px-5 pt-5 sm:px-8 lg:px-12 lg:pt-8">
+        <a href="index.html" class="flex items-center gap-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-snow">
+          <svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="#FCFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="text-lg font-semibold tracking-tight">CareConnect</span>
+        </a>
+
+        <!-- Centered glass pill nav (desktop) -->
+        <nav aria-label="Main" class="absolute left-1/2 hidden -translate-x-1/2 lg:block">
+          <ul class="glass relative flex items-center gap-1 rounded-full p-1 text-sm">
+            <li class="nav-glider" aria-hidden="true"></li>
+            <li><a href="index.html" aria-current="page" class="glass-strong flex items-center gap-2 rounded-full px-4 py-1.5 font-medium"><span class="h-1.5 w-1.5 rounded-full bg-pink" aria-hidden="true"></span>Home</a></li>
+            <li><button type="button" class="menu-trigger flex items-center gap-1 rounded-full px-4 py-1.5 text-snow/90 transition-colors hover:text-snow focus-visible:outline focus-visible:outline-2 focus-visible:outline-snow aria-expanded:text-snow" aria-expanded="false" aria-controls="menu-patients">Patients <svg class="menu-chevron h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z"/></svg></button></li>
+            <li><button type="button" class="menu-trigger flex items-center gap-1 rounded-full px-4 py-1.5 text-snow/90 transition-colors hover:text-snow focus-visible:outline focus-visible:outline-2 focus-visible:outline-snow aria-expanded:text-snow" aria-expanded="false" aria-controls="menu-teams">Care teams <svg class="menu-chevron h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z"/></svg></button></li>
+            <li><button type="button" class="menu-trigger flex items-center gap-1 rounded-full px-4 py-1.5 text-snow/90 transition-colors hover:text-snow focus-visible:outline focus-visible:outline-2 focus-visible:outline-snow aria-expanded:text-snow" aria-expanded="false" aria-controls="menu-privacy">Privacy <svg class="menu-chevron h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.6l3.3-3.3a1 1 0 1 1 1.4 1.4l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.4Z"/></svg></button></li>
+          </ul>
+        </nav>
+
+        <!-- Top-right glass icon buttons -->
+        <div class="flex items-center gap-2">
+          <a href="pages/login-page.html" class="glass flex h-10 w-10 items-center justify-center rounded-full hover:bg-snow/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-snow" aria-label="Log in">
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+          </a>
+          <button id="mobile-toggle" type="button" class="glass flex h-10 w-10 items-center justify-center rounded-full hover:bg-snow/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-snow" aria-expanded="false" aria-controls="mobile-menu">
+            <span class="sr-only">Menu</span>
+            <svg class="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 9h14M5 15h14"/></svg>
+          </button>
+        </div>
+
+        <!-- Dropdown panel: Patients -->
+        <div id="menu-patients" class="menu-panel absolute left-1/2 top-full mt-4 hidden w-[min(54rem,calc(100%-6rem))] rounded-3xl bg-snow p-8 text-navy shadow-[0_30px_60px_-20px_rgba(6,42,61,.5)] lg:block" hidden>
+          <div class="grid gap-8 md:grid-cols-[1fr_1fr_15rem]">
+            <div><p class="text-2xl font-light tracking-tight">Your visits, in one place</p><p class="mt-2 text-sm text-navy/70">See what’s coming up and who you’re seeing, without calling the front desk.</p></div>
+            <ul class="space-y-1 text-sm">
+              <li><a href="pages/patient-login.html" class="block rounded-2xl p-3 hover:bg-sky/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky"><span class="font-semibold">Log in to the patient portal</span><span class="mt-0.5 block text-navy/65">Check your next appointment and update your phone number.</span></a></li>
+              <li><a href="pages/reset-password.html" class="block rounded-2xl p-3 hover:bg-sky/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky"><span class="font-semibold">Reset your password</span><span class="mt-0.5 block text-navy/65">We’ll email you a link that works for one hour.</span></a></li>
+            </ul>
+            <div class="rounded-2xl bg-sky p-5 text-snow"><p class="font-semibold">Reminders that respect your privacy</p><p class="mt-2 text-sm text-snow/85">Emails list the date, time, and location. Never the reason for your visit.</p></div>
+          </div>
+        </div>
+
+        <!-- Dropdown panel: Care teams -->
+        <div id="menu-teams" class="menu-panel absolute left-1/2 top-full mt-4 hidden w-[min(54rem,calc(100%-6rem))] rounded-3xl bg-snow p-8 text-navy shadow-[0_30px_60px_-20px_rgba(6,42,61,.5)] lg:block" hidden>
+          <div class="grid gap-8 md:grid-cols-[1fr_1fr_15rem]">
+            <div><p class="text-2xl font-light tracking-tight">One schedule for the whole clinic</p><p class="mt-2 text-sm text-navy/70">Physicians, PAs, nurses, and front-desk staff all work from the same calendar.</p></div>
+            <ul class="space-y-1 text-sm">
+              <li><a href="pages/staff-login.html" class="block rounded-2xl p-3 hover:bg-sky/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky"><span class="font-semibold">Daily schedule</span><span class="mt-0.5 block text-navy/65">Nurses see every provider they support, hour by hour.</span></a></li>
+              <li><a href="pages/staff-login.html" class="block rounded-2xl p-3 hover:bg-sky/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky"><span class="font-semibold">No-show reports</span><span class="mt-0.5 block text-navy/65">Break missed visits down by provider, weekday, or visit type.</span></a></li>
+              <li><a href="pages/staff-login.html" class="block rounded-2xl p-3 hover:bg-sky/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky"><span class="font-semibold">Staff login</span><span class="mt-0.5 block text-navy/65">For physicians, nurses, receptionists, and analysts.</span></a></li>
+            </ul>
+            <div class="rounded-2xl bg-navy p-5 text-snow"><p class="font-semibold">Physician sign-off built in</p><p class="mt-2 text-sm text-snow/75">Visits led by a physician assistant are flagged until the supervising physician signs off.</p></div>
+          </div>
+        </div>
+
+        <!-- Dropdown panel: Privacy -->
+        <div id="menu-privacy" class="menu-panel absolute left-1/2 top-full mt-4 hidden w-[min(54rem,calc(100%-6rem))] rounded-3xl bg-snow p-8 text-navy shadow-[0_30px_60px_-20px_rgba(6,42,61,.5)] lg:block" hidden>
+          <div class="grid gap-8 md:grid-cols-[1fr_2fr]">
+            <div><p class="text-2xl font-light tracking-tight">Scheduling data only</p><p class="mt-2 text-sm text-navy/70">CareConnect is built around HIPAA principles from the start.</p></div>
+            <ul class="grid gap-x-8 gap-y-5 text-sm sm:grid-cols-2">
+              <li><p class="font-semibold">Patients see only their own visits</p><p class="mt-0.5 text-navy/65">Every request is tied to the signed-in account, never to an ID in the address bar.</p></li>
+              <li><p class="font-semibold">No medical records stored</p><p class="mt-0.5 text-navy/65">We keep appointment times, providers, and visit types. Nothing clinical.</p></li>
+              <li><p class="font-semibold">De-identified reporting</p><p class="mt-0.5 text-navy/65">Analysts work from data with patient names and contact details removed.</p></li>
+              <li><p class="font-semibold">Sessions that really end</p><p class="mt-0.5 text-navy/65">Logging out revokes access immediately on the server, not just in your browser.</p></li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Menu drawer (the ≡ button, all screen sizes) -->
+        <div id="mobile-menu" class="drawer glass absolute right-5 top-full mt-3 w-[min(20rem,calc(100vw-2.5rem))] rounded-3xl bg-navy/40 p-3 text-sm sm:right-8 lg:right-12" hidden>
+          <nav aria-label="Main (menu)">
+            <p class="px-3 pb-1 pt-2 text-xs font-semibold text-snow/60">Patients</p>
+            <a href="pages/patient-login.html" class="block rounded-xl px-3 py-2 hover:bg-snow/15">Patient portal</a>
+            <a href="pages/reset-password.html" class="block rounded-xl px-3 py-2 hover:bg-snow/15">Reset your password</a>
+            <p class="px-3 pb-1 pt-3 text-xs font-semibold text-snow/60">Care teams</p>
+            <a href="pages/staff-login.html" class="block rounded-xl px-3 py-2 hover:bg-snow/15">Daily schedule</a>
+            <a href="pages/staff-login.html" class="block rounded-xl px-3 py-2 hover:bg-snow/15">No-show reports</a>
+            <a href="pages/staff-login.html" class="block rounded-xl px-3 py-2 hover:bg-snow/15">Staff login</a>
+          </nav>
+        </div>
+      </header>
+
+      <!-- ============ Hero content ============ -->
+      <main id="main" class="relative z-10 flex flex-1 flex-col px-5 pb-6 sm:px-8 lg:px-12 lg:pb-8">
+        <div class="grid flex-1 gap-8 pt-16 lg:grid-cols-[1fr_20rem] lg:pt-6">
+
+          <!-- Headline + description, bottom-left -->
+          <div class="flex flex-col justify-end">
+            <h1 class="text-[clamp(3rem,7.2vw,6rem)] font-light leading-[0.98] tracking-[-0.02em]">Every appointment,<br>on the same page.</h1>
+            <p class="mt-6 max-w-[420px] text-sm leading-relaxed text-snow/80 sm:text-[15px]">CareConnect gives patients, physicians, and clinic staff one shared schedule to book from, manage, and trust. Reminders go out automatically, and patients only ever see their own visits.</p>
+          </div>
+
+          <!-- Right column: glass cards (centered) + CTAs (bottom) -->
+          <div class="flex flex-col">
+            <div class="my-auto hidden lg:block" aria-label="Example of a patient's upcoming appointments" role="group">
+              <div class="mx-auto mb-3 h-1 w-10 rounded-full bg-snow/60" aria-hidden="true"></div>
+              <div class="glass rounded-[20px] p-3">
+                <p class="flex items-center gap-1.5 px-1 pb-2.5 text-[11px] text-snow/75">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/></svg>
+                  CareConnect Clinic, Suite 200
+                </p>
+                <div class="space-y-2.5">
+                  <div class="glass rounded-2xl p-3.5">
+                    <div class="flex items-center justify-between text-xs"><span class="font-medium">Friday, Nov 6</span><span class="text-snow/70">Follow-up</span></div>
+                    <p class="mt-1 text-[11px] text-snow/70">Dr. Maya Patel</p>
+                    <div class="mt-3 flex items-end justify-between">
+                      <div><p class="text-[10px] text-snow/60">Start</p><p class="text-sm font-medium">8:00 AM</p></div>
+                      <span class="glass mb-0.5 rounded-full px-2 py-0.5 text-[10px]">30m</span>
+                      <div class="text-right"><p class="text-[10px] text-snow/60">End</p><p class="text-sm font-medium">8:30 AM</p></div>
+                    </div>
+                    <div class="ticks mt-2.5" aria-hidden="true"></div>
+                  </div>
+                  <div class="glass rounded-2xl p-3.5">
+                    <div class="flex items-center justify-between text-xs"><span class="font-medium">Friday, Nov 20</span><span class="text-snow/70">Annual physical</span></div>
+                    <p class="mt-1 text-[11px] text-snow/70">Jordan Reyes, PA-C</p>
+                    <div class="mt-3 flex items-end justify-between">
+                      <div><p class="text-[10px] text-snow/60">Start</p><p class="text-sm font-medium">7:30 AM</p></div>
+                      <span class="glass mb-0.5 rounded-full px-2 py-0.5 text-[10px]">1h</span>
+                      <div class="text-right"><p class="text-[10px] text-snow/60">End</p><p class="text-sm font-medium">8:30 AM</p></div>
+                    </div>
+                    <div class="ticks mt-2.5" aria-hidden="true"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CTAs, on the description's baseline -->
+            <div class="mt-auto flex flex-wrap items-center gap-x-6 gap-y-3 lg:justify-end">
+              <a href="pages/patient-login.html" class="cta inline-flex items-center gap-1.5 rounded-full bg-snow px-5 py-2.5 text-sm font-semibold text-navy focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-snow">Patient portal <span aria-hidden="true">↗</span></a>
+              <a href="pages/staff-login.html" class="cta cta-link inline-flex items-center gap-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-snow">Staff login <span aria-hidden="true">↗</span></a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ Feature strip ============ -->
+        <div class="mt-10 lg:mt-12">
+          <div class="relative h-px bg-snow/20" aria-hidden="true"><div class="absolute left-0 top-0 h-px w-[min(12rem,40%)] bg-snow"></div></div>
+          <ul class="no-scrollbar -mx-5 flex snap-x scroll-px-5 gap-0 overflow-x-auto px-5 pt-5 text-xs leading-snug sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-y-5 sm:overflow-visible sm:px-0 lg:grid-cols-5">
+            <li class="flex min-w-[11rem] snap-start flex-col gap-2 pr-5 sm:min-w-0">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+              <span class="text-snow">Book online,<br>any time of day</span>
+            </li>
+            <li class="flex min-w-[11rem] snap-start flex-col gap-2 border-l border-snow/20 px-5 sm:min-w-0">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
+              <span class="text-snow/70">Email reminders with<br>date, time, and place</span>
+            </li>
+            <li class="flex min-w-[11rem] snap-start flex-col gap-2 border-l border-snow/20 px-5 sm:min-w-0">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c.8-3 3.2-5 6-5s5.2 2 6 5M15 14.5c2.4 0 4.3 1.6 5 4.5"/></svg>
+              <span class="text-snow/70">One shared schedule<br>for every care team</span>
+            </li>
+            <li class="flex min-w-[11rem] snap-start flex-col gap-2 border-l border-snow/20 px-5 sm:min-w-0">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+              <span class="text-snow/70">No-show reports by<br>provider and weekday</span>
+            </li>
+            <li class="flex min-w-[11rem] snap-start flex-col gap-2 border-l border-snow/20 px-5 sm:min-w-0">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+              <span class="text-snow/70">Scheduling data only,<br>no medical records</span>
+            </li>
+          </ul>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <script>
+    // Dropdown navigation: click (or hover with a mouse) opens a panel.
+    // Escape, clicking outside, or moving the mouse off the header closes it.
+    (() => {
+      const header = document.getElementById('site-header');
+      const scrim = document.getElementById('menu-scrim');
+      const triggers = [...document.querySelectorAll('.menu-trigger')];
+      const toggle = document.getElementById('mobile-toggle');
+      const drawer = document.getElementById('mobile-menu');
+      const canHover = matchMedia('(hover: hover) and (pointer: fine)').matches;
+      const navList = document.querySelector('nav[aria-label="Main"] ul');
+      const glider = navList.querySelector('.nav-glider');
+      const navItems = [...navList.querySelectorAll('li > a, li > button')];
+      let open = null, closeTimer, openTimer, hoverOpenedAt = 0;
+
+      // Slide the glass highlight under `el` (or fade it out when el is null).
+      function glideTo(el) {
+        if (!el) { glider.style.opacity = '0'; return; }
+        const appearing = glider.style.opacity !== '1';
+        if (appearing) glider.style.transition = 'none'; // first appearance: no slide from the left edge
+        glider.style.width = el.offsetWidth + 'px';
+        glider.style.transform = 'translateX(' + el.offsetLeft + 'px)';
+        if (appearing) { void glider.offsetWidth; glider.style.transition = ''; }
+        glider.style.opacity = '1';
+      }
+
+      function setDrawer(isOpen) {
+        toggle.setAttribute('aria-expanded', String(isOpen));
+        drawer.hidden = !isOpen;
+      }
+
+      function setOpen(trigger) {
+        clearTimeout(closeTimer);
+        clearTimeout(openTimer);
+        if (trigger) setDrawer(false);
+        // Switching straight from one open menu to another crossfades in place.
+        if (open && trigger && open !== trigger) header.dataset.switching = '';
+        else delete header.dataset.switching;
+        triggers.forEach((t) => {
+          const isOpen = t === trigger;
+          t.setAttribute('aria-expanded', String(isOpen));
+          document.getElementById(t.getAttribute('aria-controls')).hidden = !isOpen;
+        });
+        open = trigger;
+        scrim.classList.toggle('is-open', !!trigger || !drawer.hidden);
+        if (trigger) glideTo(trigger);
+        else if (!navList.matches(':hover')) glideTo(null);
+      }
+
+      triggers.forEach((t) => {
+        // A click right after hover-opening shouldn't immediately close the menu again.
+        t.addEventListener('click', () => {
+          clearTimeout(openTimer);
+          if (open === t && Date.now() - hoverOpenedAt < 600) return;
+          setOpen(open === t ? null : t);
+        });
+        if (canHover) {
+          t.addEventListener('mouseenter', () => {
+            if (open === t) return;
+            clearTimeout(openTimer);
+            // Already browsing menus: switch right away. Otherwise wait a beat so a passing cursor doesn't flash a panel.
+            const go = () => { hoverOpenedAt = Date.now(); setOpen(t); };
+            if (open) go(); else openTimer = setTimeout(go, 90);
+          });
+          t.addEventListener('mouseleave', () => clearTimeout(openTimer));
+        }
+      });
+      if (canHover) {
+        navItems.forEach((el) => el.addEventListener('mouseenter', () => glideTo(el)));
+        navList.addEventListener('mouseleave', () => glideTo(open));
+        header.addEventListener('mouseleave', () => { if (open) closeTimer = setTimeout(() => setOpen(null), 180); });
+        header.addEventListener('mouseenter', () => clearTimeout(closeTimer));
+      }
+      navItems.forEach((el) => el.addEventListener('focus', () => glideTo(el)));
+      navList.addEventListener('focusout', (e) => { if (!navList.contains(e.relatedTarget)) glideTo(open); });
+
+      toggle.addEventListener('click', () => {
+        const willOpen = drawer.hidden;
+        setOpen(null);
+        setDrawer(willOpen);
+        scrim.classList.toggle('is-open', willOpen);
+      });
+
+      function closeAll() { setOpen(null); setDrawer(false); scrim.classList.remove('is-open'); glideTo(null); }
+      scrim.addEventListener('click', closeAll);
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const back = open || (!drawer.hidden && toggle);
+        closeAll();
+        if (back) back.focus();
+      });
+    })();
+  </script>
 </body>
 </html>
