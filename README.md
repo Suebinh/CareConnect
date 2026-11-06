@@ -195,12 +195,45 @@ If you get stuck, ask a teammate before forcing anything. **Never use `git push 
 ---
 
 ## ✨ Seeing Your Changes Live ✨
-The site is hosted with GitHub Pages and redeploys automatically after changes are merged into `main`. This usually takes **1 to 2 minutes**. Check progress under the **Actions** tab. If you don't see your update, do a hard refresh (`Ctrl+Shift+R` on Windows, `Cmd+Shift+R` on Mac).
+The live site has three parts, all on free tiers:
+
+| Part | Host | What it runs |
+|---|---|---|
+| Frontend | Cloudflare Pages | `index.html`, `pages/`, `js/`, `css/`, `logo.svg` |
+| Backend API | Render | `backend/` (Node/Express) |
+| Database | Neon | Postgres |
+
+Both Cloudflare and Render redeploy automatically after changes are merged into `main` (usually **1 to 3 minutes**). If you don't see your update, do a hard refresh (`Ctrl+Shift+R` on Windows, `Cmd+Shift+R` on Mac).
+
+The frontend picks its API automatically (`js/api.js`): on `localhost` it calls `http://localhost:4000/api`, and everywhere else it calls the deployed Render backend.
+
+### 🛠️ One-time deploy setup (only one person needs to do this)
+
+**1. Backend on Render**
+1. Sign in at [render.com](https://render.com) with GitHub → **New → Blueprint** → pick this repo. Render reads `render.yaml` and creates the `careconnect-api` service.
+2. Fill in the secret env vars it asks for: `DATABASE_URL` (Neon connection string), `JWT_SECRET`, and the `SMTP_*` / `EMAIL_FROM` values. Leave `CORS_ORIGINS` and `FRONTEND_URL` blank for now.
+3. After it deploys, open `https://<your-service>.onrender.com/health`. It should say `{"status":"ok"}`.
+4. If the URL isn't `careconnect-api.onrender.com`, update `DEPLOYED_API_BASE` in `js/api.js` and open a PR.
+
+**2. Frontend on Cloudflare Pages**
+1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → pick this repo.
+2. Production branch: `main`. Framework preset: **None**.
+3. Build command: `mkdir -p dist && cp -r index.html logo.svg pages js css dist/`
+4. Build output directory: `dist` (this keeps `backend/` and `docs/` off the public site).
+5. Deploy. You'll get a URL like `https://careconnect.pages.dev`.
+
+**3. Connect them**
+Back in Render, set `CORS_ORIGINS` and `FRONTEND_URL` to the Cloudflare URL (no trailing slash). Render redeploys on its own. Then log in on the live site to check that everything works.
+
+### ⚠️ Free-tier quirks
+- **Render sleeps** after ~15 minutes with no traffic. The first request after that takes 30–60 seconds. **Open the site a minute before any demo.**
+- **Email:** Render's free tier may block outbound SMTP, so reminder and password-reset emails might not send. If they don't, switch to an HTTP email API (e.g. Resend).
+- **Demo data only.** None of these free hosts is HIPAA-compliant, so never put real patient info on the live site.
 
 ---
 
 ## 🌷 Notes 🌷
-- This is a class prototype. GitHub Pages hosts static files only (HTML, CSS, JS), so backend features like login and databases are mocked or handled separately.
+- This is a class prototype. Use the demo seed data (`npm run seed:demo` in `backend/`) on the live site.
 - Questions or problems? Message the team chat or contact <Suebin>.
 
 *made with 🎀 by the CareConnect team*
