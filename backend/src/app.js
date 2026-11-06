@@ -5,7 +5,13 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
-app.use(cors());
+// CORS_ORIGINS: comma-separated list of frontend URLs allowed to call the API in production
+// (e.g. the Cloudflare Pages URL). Unset = allow any origin, which is fine for local dev.
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+app.use(cors(allowedOrigins.length ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
@@ -14,7 +20,7 @@ app.use('/api', routes);
 
 // Local dev: also serve the frontend so one server (http://localhost:4000) runs the whole app.
 // Only the frontend files are exposed, never backend/ (it holds .env secrets).
-// GitHub Pages hosts the frontend in production, so this is skipped there.
+// In production the frontend is hosted separately (Cloudflare Pages), so this is skipped.
 if (process.env.NODE_ENV !== 'production') {
   const path = require('path');
   const root = path.join(__dirname, '..', '..');

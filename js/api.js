@@ -1,5 +1,10 @@
 // Shared helper for every page. Loaded with <script src="../js/api.js"></script>
-const API_BASE = 'http://localhost:4000/api';
+// Local dev (localhost, Live Server, or opening the file directly) talks to the backend on
+// port 4000. Anywhere else (Cloudflare Pages, GitHub Pages) talks to the deployed backend.
+// Render backend (see README → Seeing Your Changes Live).
+const DEPLOYED_API_BASE = 'https://careconnect-api-2e7m.onrender.com/api';
+const IS_LOCAL = ['localhost', '127.0.0.1', ''].includes(location.hostname);
+const API_BASE = IS_LOCAL ? 'http://localhost:4000/api' : DEPLOYED_API_BASE;
 const LOGIN_PAGE = 'staff-login.html'; // pages/ folder; change if the login page is renamed
 
 async function apiFetch(path, options = {}) {

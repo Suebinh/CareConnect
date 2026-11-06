@@ -195,12 +195,42 @@ If you get stuck, ask a teammate before forcing anything. **Never use `git push 
 ---
 
 ## ✨ Seeing Your Changes Live ✨
-The site is hosted with GitHub Pages and redeploys automatically after changes are merged into `main`. This usually takes **1 to 2 minutes**. Check progress under the **Actions** tab. If you don't see your update, do a hard refresh (`Ctrl+Shift+R` on Windows, `Cmd+Shift+R` on Mac).
+The live site has three parts, all on free tiers:
+
+| Part | Host | What it runs |
+|---|---|---|
+| Frontend | Cloudflare Pages | `index.html`, `pages/`, `js/`, `css/`, `logo.svg` |
+| Backend API | Render | `backend/` (Node/Express) |
+| Database | Neon | Postgres |
+
+**Live site:** https://careconnect-ckc.pages.dev · **API:** https://careconnect-api-2e7m.onrender.com (`/health` should say `{"status":"ok"}`)
+
+Neither host redeploys by itself yet (Brandon owns both accounts, and the repo lives under Suebin's GitHub). After changes are merged into `main`, Brandon redeploys:
+- **Backend:** Render dashboard → `careconnect-api` → **Manual Deploy → Deploy latest commit**
+- **Frontend:** from the repo root, on an up-to-date `main`:
+  ```bash
+  rm -rf dist && mkdir -p dist && cp -r index.html logo.svg pages js css dist/
+  npx wrangler pages deploy dist --project-name careconnect --branch main
+  ```
+
+If you don't see your update, do a hard refresh (`Ctrl+Shift+R` on Windows, `Cmd+Shift+R` on Mac).
+
+The frontend picks its API automatically (`js/api.js`): on `localhost` it calls `http://localhost:4000/api`, and everywhere else it calls the Render backend.
+
+### 🛠️ How it's set up (for reference)
+- **Render:** web service from the public repo URL, branch `main`, root directory `backend`, `npm ci` / `npm start`, free plan. Env vars: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `NODE_ENV=production`, `CORS_ORIGINS` and `FRONTEND_URL` (both the Cloudflare URL). `render.yaml` describes the same config as a Blueprint.
+- **Cloudflare Pages:** project `careconnect`, uploaded directly with `wrangler`. Only the frontend files go into `dist/`, so `backend/` and `docs/` stay off the public site.
+- **Auto-deploy later:** if Suebin connects the repo to Render (via Blueprint) and Cloudflare (via Git) from her GitHub account, both would redeploy on every merge. Cloudflare build command: the `mkdir … cp …` line above, output directory `dist`.
+
+### ⚠️ Free-tier quirks
+- **Render sleeps** after ~15 minutes with no traffic. The first request after that takes 30–60 seconds. **Open the site a minute before any demo.**
+- **Email:** Render's free tier may block outbound SMTP, so reminder and password-reset emails might not send. If they don't, switch to an HTTP email API (e.g. Resend).
+- **Demo data only.** None of these free hosts is HIPAA-compliant, so never put real patient info on the live site.
 
 ---
 
 ## 🌷 Notes 🌷
-- This is a class prototype. GitHub Pages hosts static files only (HTML, CSS, JS), so backend features like login and databases are mocked or handled separately.
+- This is a class prototype. Use the demo seed data (`npm run seed:demo` in `backend/`) on the live site.
 - Questions or problems? Message the team chat or contact <Suebin>.
 
 *made with 🎀 by the CareConnect team*
