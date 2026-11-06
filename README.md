@@ -203,27 +203,24 @@ The live site has three parts, all on free tiers:
 | Backend API | Render | `backend/` (Node/Express) |
 | Database | Neon | Postgres |
 
-Both Cloudflare and Render redeploy automatically after changes are merged into `main` (usually **1 to 3 minutes**). If you don't see your update, do a hard refresh (`Ctrl+Shift+R` on Windows, `Cmd+Shift+R` on Mac).
+**Live site:** https://careconnect-ckc.pages.dev · **API:** https://careconnect-api-2e7m.onrender.com (`/health` should say `{"status":"ok"}`)
 
-The frontend picks its API automatically (`js/api.js`): on `localhost` it calls `http://localhost:4000/api`, and everywhere else it calls the deployed Render backend.
+Neither host redeploys by itself yet (Brandon owns both accounts, and the repo lives under Suebin's GitHub). After changes are merged into `main`, Brandon redeploys:
+- **Backend:** Render dashboard → `careconnect-api` → **Manual Deploy → Deploy latest commit**
+- **Frontend:** from the repo root, on an up-to-date `main`:
+  ```bash
+  rm -rf dist && mkdir -p dist && cp -r index.html logo.svg pages js css dist/
+  npx wrangler pages deploy dist --project-name careconnect --branch main
+  ```
 
-### 🛠️ One-time deploy setup (only one person needs to do this)
+If you don't see your update, do a hard refresh (`Ctrl+Shift+R` on Windows, `Cmd+Shift+R` on Mac).
 
-**1. Backend on Render**
-1. Sign in at [render.com](https://render.com) with GitHub → **New → Blueprint** → pick this repo. Render reads `render.yaml` and creates the `careconnect-api` service.
-2. Fill in the secret env vars it asks for: `DATABASE_URL` (Neon connection string), `JWT_SECRET`, and the `SMTP_*` / `EMAIL_FROM` values. Leave `CORS_ORIGINS` and `FRONTEND_URL` blank for now.
-3. After it deploys, open `https://<your-service>.onrender.com/health`. It should say `{"status":"ok"}`.
-4. If the URL isn't `careconnect-api.onrender.com`, update `DEPLOYED_API_BASE` in `js/api.js` and open a PR.
+The frontend picks its API automatically (`js/api.js`): on `localhost` it calls `http://localhost:4000/api`, and everywhere else it calls the Render backend.
 
-**2. Frontend on Cloudflare Pages**
-1. Cloudflare dashboard → **Workers & Pages → Create → Pages → Connect to Git** → pick this repo.
-2. Production branch: `main`. Framework preset: **None**.
-3. Build command: `mkdir -p dist && cp -r index.html logo.svg pages js css dist/`
-4. Build output directory: `dist` (this keeps `backend/` and `docs/` off the public site).
-5. Deploy. You'll get a URL like `https://careconnect.pages.dev`.
-
-**3. Connect them**
-Back in Render, set `CORS_ORIGINS` and `FRONTEND_URL` to the Cloudflare URL (no trailing slash). Render redeploys on its own. Then log in on the live site to check that everything works.
+### 🛠️ How it's set up (for reference)
+- **Render:** web service from the public repo URL, branch `main`, root directory `backend`, `npm ci` / `npm start`, free plan. Env vars: `DATABASE_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `NODE_ENV=production`, `CORS_ORIGINS` and `FRONTEND_URL` (both the Cloudflare URL). `render.yaml` describes the same config as a Blueprint.
+- **Cloudflare Pages:** project `careconnect`, uploaded directly with `wrangler`. Only the frontend files go into `dist/`, so `backend/` and `docs/` stay off the public site.
+- **Auto-deploy later:** if Suebin connects the repo to Render (via Blueprint) and Cloudflare (via Git) from her GitHub account, both would redeploy on every merge. Cloudflare build command: the `mkdir … cp …` line above, output directory `dist`.
 
 ### ⚠️ Free-tier quirks
 - **Render sleeps** after ~15 minutes with no traffic. The first request after that takes 30–60 seconds. **Open the site a minute before any demo.**
