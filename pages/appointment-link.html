@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <title>CareConnect | Your appointment</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/theme.css">
+  <script src="../js/api.js"></script>
+  <style>
+    .date-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; width: 84px; padding: .6rem 0; border-radius: 20px; background: rgba(252, 255, 255, .22); border: 1px solid rgba(252, 255, 255, .3); line-height: 1; }
+    .date-tile small { font-size: .8rem; font-weight: 600; color: rgba(252, 255, 255, .85); }
+    .date-tile b { margin: .2rem 0; font-size: 2.35rem; font-weight: 300; }
+    .pick { border-radius: 999px; padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer; color: var(--white);
+            background: rgba(252, 255, 255, .12); border: 1px solid rgba(252, 255, 255, .25); transition: background-color .2s ease; font-variant-numeric: tabular-nums; }
+    .pick:hover { background: rgba(252, 255, 255, .22); }
+    .pick[aria-pressed="true"] { background: var(--white); color: var(--navy); border-color: transparent; }
+    .cc-btn-danger { background: rgba(216, 57, 149, .32); border: 1px solid rgba(255, 170, 215, .7); color: var(--white); }
+    .cc-btn-danger:hover { background: rgba(216, 57, 149, .5); }
+    /* Reschedule: the Move button stays on screen while scrolling through times */
+    .action-bar { position: sticky; bottom: 1rem; z-index: 5; padding: 1rem; border-radius: 24px;
+                  background: rgba(6, 42, 61, .88); border: 1px solid rgba(252, 255, 255, .25);
+                  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    .action-bar .cc-btn { width: 100%; }
+  </style>
+</head>
+<body class="cc-page">
+  <header class="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6 sm:px-8 sm:pt-8">
+    <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
+    <a href="patient-login.html" class="cc-btn-ghost">Log in</a>
+  </header>
+
+  <main id="main" class="mx-auto max-w-xl px-5 py-12 sm:px-8 sm:py-16">
+    <p id="loading" class="text-snow/85">Loading your appointment…</p>
+
+    <!-- Appointment summary (date, time, location only) -->
+    <section id="appt" hidden class="glass rounded-[28px] p-6 sm:p-7">
+      <div class="flex items-center gap-5">
+        <div class="date-tile" aria-hidden="true"><small id="t-month"></small><b id="t-day"></b><small id="t-weekday"></small></div>
+        <div class="min-w-0">
+          <p id="t-time" class="text-[clamp(2rem,6vw,2.75rem)] font-light leading-[1.05] tracking-[-0.02em]"></p>
+          <p id="t-place" class="mt-1.5 font-semibold"></p>
+        </div>
+      </div>
+      <p id="t-status" class="mt-5 hidden"></p>
+    </section>
+
+    <!-- What this link does -->
+    <section id="panel" hidden class="mt-6">
+      <h1 id="p-title" class="text-3xl font-light tracking-[-0.01em]"></h1>
+      <p id="p-text" class="mt-2 text-snow/85"></p>
+      <p id="p-error" role="alert" hidden class="cc-alert cc-alert-error mt-4"></p>
+      <div id="slots" class="mt-5 space-y-4"></div>
+      <div id="p-actions" class="mt-6 flex flex-wrap gap-3"></div>
+    </section>
+
+    <p id="help" hidden class="mt-10 text-sm text-snow/80">Questions? Call the front desk at <a id="phone" class="cc-link"></a>.</p>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+    const token = params.get('t') || '';
+    const action = params.get('a') || 'confirm';
+    const base = '/links/appointment/' + encodeURIComponent(token);
+    const to12h = (t) => { const [h, m] = t.split(':').map(Number); return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+    const dayName = (ymd, opts) => new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', opts);
+    let info = null;
+
+    function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function button(label, cls, onClick) { const b = el('button', cls, label); b.type = 'button'; b.addEventListener('click', onClick); return b; }
+    function showPanel(title, text, actions = []) {
+      $('panel').hidden = false;
+      $('p-title').textContent = title;
+      $('p-text').textContent = text || '';
+      $('p-actions').replaceChildren(...actions);
+      $('p-actions').classList.remove('action-bar');
+    }
+    function showError(msg) { $('p-error').textContent = msg; $('p-error').hidden = !msg; }
+    function showAppt(i) {
+      $('t-month').textContent = dayName(i.date, { month: 'short' });
+      $('t-day').textContent = Number(i.date.slice(8));
+      $('t-weekday').textContent = dayName(i.date, { weekday: 'short' });
+      $('t-time').textContent = to12h(i.start_time);
+      $('t-place').textContent = i.location;
+      $('appt').hidden = false;
+    }
+    function status(text) { $('t-status').textContent = text; $('t-status').classList.remove('hidden'); $('t-status').className = 'mt-5 cc-alert'; }
+
+    // ---------- Add to calendar (built in the browser; date/time/location only) ----------
+    function downloadIcs() {
+      const stamp = (iso) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+      const esc = (v) => v.replace(/[\\,;]/g, '\\$&');
+      const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CareConnect//Appointment//EN', 'BEGIN:VEVENT',
+        'UID:careconnect-' + stamp(info.start_at) + '@careconnect', 'DTSTAMP:' + stamp(new Date().toISOString()),
+        'DTSTART:' + stamp(info.start_at), 'DTEND:' + stamp(info.end_at),
+        'SUMMARY:CareConnect appointment', 'LOCATION:' + esc(info.location), 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+      const a = el('a');
+      a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+      a.download = 'careconnect-appointment-' + info.date + '.ics';
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    // ---------- Actions ----------
+    async function doConfirm() {
+      showPanel('Confirming…', '');
+      try {
+        await apiFetch(base + '/confirm', { method: 'POST' });
+        status('Confirmed. The clinic knows you’re coming.');
+        showPanel('Thanks, see you then!', 'You’re confirmed. If plans change, call the front desk so someone else can have the time.',
+          [button('Add to calendar', 'cc-btn', downloadIcs)]);
+      } catch (err) { showPanel('We couldn’t confirm', ''); showError(err.message); }
+    }
+
+    function askCancel() {
+      showPanel('Cancel this appointment?', 'The time will be offered to someone else. This can’t be undone.', [
+        button('Yes, cancel it', 'cc-btn cc-btn-danger', async (e) => {
+          e.target.disabled = true; showError('');
+          try {
+            await apiFetch(base + '/cancel', { method: 'POST' });
+            status('Cancelled.');
+            showPanel('Your appointment is cancelled', 'Thanks for letting us know. Log in any time to book a new visit.',
+              [Object.assign(el('a', 'cc-btn', 'Book a new visit'), { href: 'patient-login.html' })]);
+          } catch (err) { showError(err.message); e.target.disabled = false; }
+        }),
+        button('Keep my appointment', 'cc-btn-ghost', () => showPanel('No changes made', 'Your appointment is still booked.', [button('Add to calendar', 'cc-btn', downloadIcs)]))
+      ]);
+    }
+
+    async function showReschedule() {
+      showPanel('Pick a new time', 'Same provider and type of visit. Your current time is freed once you move.');
+      $('slots').textContent = 'Finding open times…';
+      let slots;
+      try { ({ slots } = await apiFetch(base + '/slots')); } catch (err) { $('slots').textContent = ''; showError(err.message); return; }
+      $('slots').replaceChildren();
+      if (!slots.length) { $('slots').append(el('p', 'text-snow/85', 'No open times in the next two weeks. Please call the front desk.')); return; }
+      const byDay = new Map();
+      slots.forEach((s) => { if (!byDay.has(s.date)) byDay.set(s.date, []); byDay.get(s.date).push(s); });
+      let chosen = null;
+      const move = button('Move my appointment', 'cc-btn', async () => {
+        if (!chosen) return;
+        move.disabled = true; showError('');
+        try {
+          const { appointment } = await apiFetch(base + '/reschedule', { method: 'POST', body: JSON.stringify({ startAt: chosen.start_at }) });
+          info = { ...info, date: appointment.date, start_time: appointment.start_time, end_time: appointment.end_time, start_at: chosen.start_at,
+                   end_at: new Date(new Date(chosen.start_at).getTime() + (new Date(info.end_at) - new Date(info.start_at))).toISOString() };
+          showAppt(info);
+          status('Moved. We emailed you a confirmation.');
+          $('slots').replaceChildren();
+          showPanel('You’re all set', 'Your appointment has been moved.', [button('Add to calendar', 'cc-btn', downloadIcs)]);
+        } catch (err) { showError(err.message); move.disabled = false; if (/taken/i.test(err.message)) showReschedule(); }
+      });
+      move.disabled = true;
+      byDay.forEach((list, date) => {
+        const card = el('div', 'glass rounded-[24px] p-5');
+        card.append(el('p', 'font-medium', dayName(date, { weekday: 'long', month: 'long', day: 'numeric' })));
+        const row = el('div', 'mt-3 flex flex-wrap gap-2');
+        list.forEach((s) => {
+          const b = button(to12h(s.start_time), 'pick', () => {
+            document.querySelectorAll('#slots .pick').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            chosen = s; move.disabled = false;
+            move.textContent = 'Move to ' + dayName(s.date, { weekday: 'short', month: 'short', day: 'numeric' }) + ', ' + to12h(s.start_time);
+          });
+          b.setAttribute('aria-pressed', 'false');
+          row.append(b);
+        });
+        card.append(row);
+        $('slots').append(card);
+      });
+      $('p-actions').replaceChildren(move);
+      $('p-actions').classList.add('action-bar');
+      move.textContent = 'Pick a time above';
+    }
+
+    // ---------- Start ----------
+    (async () => {
+      try {
+        info = await apiFetch(base);
+      } catch (err) {
+        $('loading').hidden = true;
+        showPanel('This link isn’t valid', 'It may be incomplete. Log in to see your appointments, or call the front desk.',
+          [Object.assign(el('a', 'cc-btn', 'Log in'), { href: 'patient-login.html' })]);
+        return;
+      }
+      $('loading').hidden = true;
+      showAppt(info);
+      $('phone').textContent = info.phone;
+      $('phone').href = 'tel:' + info.phone.replace(/[^\d+]/g, '');
+      $('help').hidden = false;
+
+      if (info.status === 'cancelled') { status('This appointment was cancelled.'); return showPanel('Nothing to do here', 'This appointment is no longer booked.'); }
+      if (info.status !== 'booked') return showPanel('This visit has already happened', '');
+      if (info.confirmed) status('Confirmed');
+      if (action === 'calendar') { downloadIcs(); return showPanel('Added to your calendar', 'Your download should start. If it doesn’t, tap below.', [button('Download again', 'cc-btn', downloadIcs)]); }
+      if (!info.actionable) {
+        const what = { confirm: 'confirm', cancel: 'cancel', reschedule: 'reschedule' }[info.used_for];
+        return showPanel(info.expired ? 'This link has expired' : 'This link was already used',
+          (what ? 'It was used to ' + what + ' this appointment. ' : '') + 'To make another change, log in or call the front desk.',
+          [button('Add to calendar', 'cc-btn', downloadIcs)]);
+      }
+      if (action === 'cancel') return askCancel();
+      if (action === 'reschedule') return showReschedule();
+      return doConfirm(); // one tap: confirming is safe to do on open
+    })();
+  </script>
+</body>
+</html>

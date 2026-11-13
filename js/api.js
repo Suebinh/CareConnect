@@ -29,7 +29,9 @@ async function apiFetch(path, options = {}) {
 const HOME_PAGE = {
   nurse: 'nurse-schedule.html',
   physician: 'nurse-schedule.html',
-  data_analyst: 'analyst-no-show.html'
+  data_analyst: 'analyst-no-show.html',
+  receptionist: 'receptionist-checkin.html',
+  process_manager: 'reminder-settings.html'
 };
 function homeFor(role) {
   return HOME_PAGE[role] || 'profile.html';

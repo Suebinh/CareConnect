@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect | Reminders</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/theme.css">
+  <script src="../js/api.js"></script>
+  <style>
+    @media (min-width: 1024px) {
+      .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1.5rem; align-items: start; }
+    }
+    .stat b { display: block; font-size: 2rem; font-weight: 300; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .stat span { font-size: .75rem; font-weight: 600; color: rgba(252, 255, 255, .75); }
+    .cc-chip-ok { background: rgba(252, 255, 255, .85); color: var(--navy); border-color: transparent; }
+    .cc-chip-partial, .cc-chip-failed { background: rgba(216, 57, 149, .55); border-color: rgba(255, 170, 215, .7); }
+    .preview { width: 100%; height: 820px; border: 0; border-radius: 20px; background: #0593C6; }
+  </style>
+</head>
+<body class="cc-page">
+  <header class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 pt-6 sm:px-8 sm:pt-8">
+    <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
+    <div class="flex items-center gap-2">
+      <a id="front-desk" href="receptionist-checkin.html" class="cc-btn-ghost" hidden>Front desk</a>
+      <a href="profile.html" class="cc-btn-ghost">My profile</a>
+      <button id="logout" class="cc-btn-ghost">Log out</button>
+    </div>
+  </header>
+
+  <main id="main" class="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
+    <h1 class="text-5xl font-light tracking-[-0.02em]">Appointment reminders</h1>
+    <p class="mt-3 max-w-2xl text-snow/80">Patients get one email before each visit with the date, time, and location only, never the reason for the visit.</p>
+
+    <p id="error" role="alert" hidden class="cc-alert cc-alert-error mt-6"></p>
+
+    <div class="layout mt-8 space-y-6 lg:space-y-0">
+      <div class="space-y-6">
+        <!-- Switch + timing -->
+        <section class="glass rounded-[28px] p-6 sm:p-8" aria-labelledby="switch-label">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h2 id="switch-label" class="text-lg font-medium">Send reminder emails</h2>
+              <p id="switch-state" class="mt-1 text-sm text-snow/80">Loading…</p>
+            </div>
+            <button id="switch" type="button" role="switch" aria-checked="false" aria-labelledby="switch-label" class="switch" disabled></button>
+          </div>
+          <div class="mt-6 border-t border-snow/15 pt-6">
+            <label for="hours" class="cc-label">Send each reminder</label>
+            <select id="hours" class="cc-field"></select>
+          </div>
+          <p id="saved" role="status" class="mt-4 min-h-[1.25rem] text-sm text-snow/80"></p>
+        </section>
+
+        <!-- Stats -->
+        <section class="glass rounded-[28px] p-6 sm:p-8" aria-labelledby="stats-heading">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="stats-heading" class="text-lg font-medium">Last 7 days</h2>
+            <button id="run" type="button" class="cc-btn-ghost">Run now</button>
+          </div>
+          <div class="mt-5 grid grid-cols-2 gap-5 sm:grid-cols-4">
+            <div class="stat"><b id="s-sent">–</b><span>Sent</span></div>
+            <div class="stat"><b id="s-failed">–</b><span>Failed</span></div>
+            <div class="stat"><b id="s-skipped">–</b><span>Skipped</span></div>
+            <div class="stat"><b id="s-pending">–</b><span>Waiting to send</span></div>
+          </div>
+          <p class="mt-5 text-xs text-snow/70">Skipped = appointment was cancelled, or the address is a fake test address (like @example.com), which is never emailed. At most <span id="batch">50</span> emails go out per minute.</p>
+
+          <h3 class="mt-8 text-sm font-semibold text-snow/80">Recent runs</h3>
+          <p id="no-runs" class="mt-2 text-sm text-snow/75" hidden>No runs yet.</p>
+          <div class="mt-2 overflow-x-auto">
+            <table id="runs" class="cc-table" hidden>
+              <thead><tr><th>When</th><th>Result</th><th>Sent</th><th>Failed</th><th>Skipped</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- Preview -->
+      <section aria-labelledby="preview-heading">
+        <h2 id="preview-heading" class="mb-3 text-lg font-light">What patients receive</h2>
+        <p class="mb-3 text-sm"><span class="text-snow/70">Subject:</span> <span id="preview-subject" class="font-semibold"></span></p>
+        <iframe id="preview" class="preview glass" title="Sample reminder email" sandbox></iframe>
+        <p class="mt-3 text-xs text-snow/70">Sample with made-up details.</p>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    if (requireLogin(['receptionist', 'process_manager'])) {
+      const $ = (id) => document.getElementById(id);
+      const label = (h) => h === 168 ? '1 week before' : h % 24 === 0 ? (h / 24) + ' day' + (h === 24 ? '' : 's') + ' before' : h + ' hours before';
+      const when = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      let current = null;
+
+      $('logout').addEventListener('click', logout);
+      $('front-desk').hidden = sessionStorage.getItem('role') !== 'receptionist';
+      const showError = (msg) => { $('error').textContent = msg; $('error').hidden = !msg; };
+
+      function renderSwitch(s) {
+        $('switch').setAttribute('aria-checked', String(s.enabled));
+        $('switch-state').textContent = s.enabled
+          ? 'On. Patients are emailed ' + label(s.hours_before) + ' their visit.'
+          : 'Off. No reminder emails are being sent.';
+        $('run').disabled = !s.enabled;
+      }
+
+      async function load() {
+        const data = await apiFetch('/settings/reminders');
+        current = data.settings;
+        if (!$('hours').options.length) data.hourChoices.forEach((h) => $('hours').add(new Option(label(h) + ' the appointment', h)));
+        $('hours').value = String(current.hours_before);
+        $('batch').textContent = data.batchLimit;
+        renderSwitch(current);
+        $('switch').disabled = false;
+        $('s-sent').textContent = data.stats.sent_7d;
+        $('s-failed').textContent = data.stats.failed_7d;
+        $('s-skipped').textContent = data.stats.skipped_7d;
+        $('s-pending').textContent = data.stats.pending;
+
+        const body = document.querySelector('#runs tbody');
+        body.innerHTML = '';
+        data.runs.forEach((r) => {
+          const row = body.insertRow();
+          row.insertCell().textContent = when(r.started_at);
+          const chip = document.createElement('span');
+          chip.className = 'cc-chip cc-chip-' + r.status;
+          chip.textContent = { ok: 'OK', partial: 'Some failed', failed: 'Failed' }[r.status] || r.status;
+          row.insertCell().append(chip);
+          [r.sent, r.failed, r.skipped].forEach((n) => { row.insertCell().textContent = n; });
+        });
+        $('runs').hidden = !data.runs.length;
+        $('no-runs').hidden = !!data.runs.length;
+      }
+
+      async function loadPreview() {
+        const { html, subject } = await apiFetch('/settings/reminders/preview?hoursBefore=' + $('hours').value);
+        $('preview').srcdoc = html;
+        $('preview-subject').textContent = subject;
+      }
+
+      async function save(changes) {
+        showError('');
+        $('switch').disabled = true;
+        try {
+          const next = { enabled: current.enabled, hoursBefore: current.hours_before, ...changes };
+          const { settings } = await apiFetch('/settings/reminders', { method: 'PUT', body: JSON.stringify(next) });
+          current = settings;
+          renderSwitch(settings);
+          $('saved').textContent = 'Saved.';
+          setTimeout(() => { $('saved').textContent = ''; }, 2500);
+        } catch (err) {
+          showError(err.message);
+          renderSwitch(current);
+          $('hours').value = String(current.hours_before);
+        }
+        $('switch').disabled = false;
+      }
+
+      $('switch').addEventListener('click', () => {
+        const turningOn = !current.enabled;
+        if (turningOn && !confirm('Turn reminders on? Patients with visits in the next ' + label(current.hours_before).replace(' before', '') + ' will start getting emails within a minute.')) return;
+        save({ enabled: turningOn });
+      });
+      $('hours').addEventListener('change', () => { save({ hoursBefore: Number($('hours').value) }); loadPreview(); });
+
+      $('run').addEventListener('click', async () => {
+        showError('');
+        $('run').disabled = true;
+        try {
+          const { result } = await apiFetch('/settings/reminders/run', { method: 'POST' });
+          $('saved').textContent = 'Run finished: ' + result.sent + ' sent, ' + result.failed + ' failed, ' + result.skipped + ' skipped.';
+          await load();
+        } catch (err) { showError(err.message); }
+        $('run').disabled = !current.enabled;
+      });
+
+      load().then(loadPreview).catch((err) => showError(err.message));
+      setInterval(() => load().catch(() => {}), 30000);
+    }
+  </script>
+</body>
+</html>

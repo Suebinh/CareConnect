@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect | Book a visit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/theme.css">
+  <script src="../js/api.js"></script>
+  <style>
+    /* Visit type + time buttons: same chips as the analyst page's presets */
+    .pick {
+      border-radius: 999px; padding: .5rem 1rem; font-size: .875rem; font-weight: 600; cursor: pointer;
+      color: var(--white); background: rgba(252, 255, 255, .12); border: 1px solid rgba(252, 255, 255, .25);
+      transition: background-color .2s ease, color .2s ease;
+    }
+    .pick:hover { background: rgba(252, 255, 255, .22); }
+    .pick:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(216, 57, 149, .7); }
+    .pick[aria-pressed="true"] { background: var(--white); color: var(--navy); border-color: transparent; }
+    .slot { min-width: 5.75rem; padding: .5rem .8rem; font-variant-numeric: tabular-nums; }
+
+    .week-nav button:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* The confirm bar stays at the bottom of the screen while you scroll times */
+    .confirm-bar { position: sticky; bottom: 1rem; z-index: 5; }
+    .confirm-bar .glass { background: rgba(6, 42, 61, .88); }
+
+    .rise { animation: rise .45s cubic-bezier(.22, 1, .36, 1) both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
+  </style>
+</head>
+<body class="cc-page">
+  <header class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 pt-6 sm:px-8 sm:pt-8">
+    <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
+    <div class="flex items-center gap-2">
+      <a href="profile.html" class="cc-btn-ghost">My appointments</a>
+      <button id="logout" class="cc-btn-ghost">Log out</button>
+    </div>
+  </header>
+
+  <main id="main" class="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
+    <!-- ---------- Booking flow ---------- -->
+    <div id="flow">
+      <h1 class="text-5xl font-light tracking-[-0.02em]">Book a visit</h1>
+      <p class="mt-3 text-snow/80">Pick the kind of visit, then a time that works for you.</p>
+
+      <!-- Steps 1-2 share one frosted panel, like the analyst page's filter bar -->
+      <div class="glass mt-8 grid gap-6 rounded-[24px] p-5 sm:p-6">
+        <section aria-labelledby="type-heading">
+          <h2 id="type-heading" class="cc-label">1 · What kind of visit?</h2>
+          <div id="types" class="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="type-heading"></div>
+        </section>
+
+        <section class="border-t border-snow/15 pt-5" aria-labelledby="who-heading">
+          <h2 id="who-heading" class="cc-label">2 · Who would you like to see?</h2>
+          <div class="mt-1 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="specialty" class="text-sm text-snow/80">Specialty</label>
+              <select id="specialty" class="cc-field"><option value="">Any specialty</option></select>
+            </div>
+            <div>
+              <label for="provider" class="text-sm text-snow/80">Provider</label>
+              <select id="provider" class="cc-field"><option value="">Any provider</option></select>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="mt-10" aria-labelledby="when-heading">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="when-heading" class="cc-label">3 · Pick a time</h2>
+          <div class="week-nav flex items-center gap-2">
+            <button id="prev" type="button" class="cc-btn-ghost" aria-label="Previous week">‹</button>
+            <p id="range" class="min-w-[9.5rem] text-center text-sm font-semibold" aria-live="polite"></p>
+            <button id="next" type="button" class="cc-btn-ghost" aria-label="Next week">›</button>
+          </div>
+        </div>
+        <p id="status" role="status" class="mt-4 text-snow/85"></p>
+        <div id="days" class="mt-4 space-y-4"></div>
+      </section>
+
+      <div id="confirm" class="confirm-bar mt-8" hidden>
+        <div class="glass rise flex flex-wrap items-center justify-between gap-4 rounded-[24px] p-5 sm:p-6">
+          <div class="min-w-0">
+            <p id="confirm-when" class="text-lg font-medium"></p>
+            <p id="confirm-who" class="text-sm text-snow/80"></p>
+            <p id="confirm-error" role="alert" hidden class="mt-2 text-sm font-semibold text-pink-200"></p>
+          </div>
+          <button id="book" type="button" class="cc-btn">Book this time</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- Success ---------- -->
+    <section id="done" hidden class="mx-auto max-w-xl">
+      <div class="glass rise rounded-[28px] p-8 sm:p-10">
+        <p class="text-sm font-semibold text-snow/80">You're booked</p>
+        <p id="done-date" class="mt-3 text-[clamp(2rem,5vw,2.75rem)] font-light leading-[1.05] tracking-[-0.02em]"></p>
+        <p id="done-time" class="mt-2 text-lg text-snow/85"></p>
+        <p id="done-who" class="mt-6 font-medium"></p>
+        <p class="text-sm text-snow/75">CareConnect Clinic, Suite 200</p>
+        <p class="mt-6 text-sm text-snow/80">We've emailed you a confirmation.</p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a href="profile.html" class="cc-btn">See my appointments</a>
+          <button id="again" type="button" class="cc-btn-ghost">Book another</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    if (requireLogin(['patient'])) {
+      const $ = (id) => document.getElementById(id);
+      const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+      const to12h = (t) => { const [h, m] = t.split(':').map(Number); return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+      const ymd = (d) => d.toLocaleDateString('en-CA');
+      const addDays = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return ymd(d); };
+      const longDay = (s) => new Date(s + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      const shortDay = (s) => new Date(s + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      const state = { typeId: null, typeName: '', week: 0, selected: null, providers: [] };
+      const today = ymd(new Date());
+      let loadSeq = 0; // ignore results from searches that were superseded
+
+      $('logout').addEventListener('click', logout);
+
+      // ---------- Options ----------
+      async function loadOptions() {
+        const { providers, appointmentTypes, specialties } = await apiFetch('/appointments/options');
+        state.providers = providers;
+        appointmentTypes.forEach((t) => {
+          const b = el('button', 'pick', t.name);
+          b.type = 'button';
+          b.setAttribute('aria-pressed', 'false');
+          b.addEventListener('click', () => {
+            document.querySelectorAll('#types .pick').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+            state.typeId = t.id; state.typeName = t.name;
+            search();
+          });
+          $('types').append(b);
+        });
+        specialties.forEach((s) => $('specialty').add(new Option(s, s)));
+        fillProviders();
+      }
+
+      // Provider list follows the chosen specialty.
+      function fillProviders() {
+        const spec = $('specialty').value;
+        const keep = $('provider').value;
+        while ($('provider').options.length > 1) $('provider').remove(1);
+        state.providers
+          .filter((p) => !spec || p.specialty === spec)
+          .forEach((p) => $('provider').add(new Option(p.name + (p.specialty ? ' · ' + p.specialty : ''), p.id)));
+        $('provider').value = [...$('provider').options].some((o) => o.value === keep) ? keep : '';
+      }
+      $('specialty').addEventListener('change', () => { fillProviders(); search(); });
+      $('provider').addEventListener('change', search);
+
+      // ---------- Week navigation ----------
+      $('prev').addEventListener('click', () => { if (state.week > 0) { state.week--; search(); } });
+      $('next').addEventListener('click', () => { if (state.week < 8) { state.week++; search(); } });
+      function range() {
+        const from = addDays(today, state.week * 7);
+        return { from, to: addDays(from, 6) };
+      }
+      function renderRange() {
+        const { from, to } = range();
+        $('range').textContent = shortDay(from) + ' – ' + shortDay(to);
+        $('prev').disabled = state.week === 0;
+        $('next').disabled = state.week >= 8;
+      }
+
+      // ---------- Search + render ----------
+      async function search() {
+        renderRange();
+        clearSelection();
+        $('days').innerHTML = '';
+        if (!state.typeId) { $('status').textContent = 'Choose a visit type above to see open times.'; return; }
+        $('status').textContent = 'Finding open times…';
+        const seq = ++loadSeq;
+        const { from, to } = range();
+        const params = new URLSearchParams({ appointmentTypeId: state.typeId, from, to });
+        if ($('provider').value) params.set('providerId', $('provider').value);
+        if ($('specialty').value) params.set('specialty', $('specialty').value);
+        try {
+          const { slots } = await apiFetch('/appointments/search?' + params);
+          if (seq !== loadSeq) return;
+          render(slots);
+        } catch (err) {
+          if (seq === loadSeq) $('status').textContent = err.message;
+        }
+      }
+
+      function render(slots) {
+        const days = $('days');
+        days.innerHTML = '';
+        if (!slots.length) {
+          $('status').textContent = '';
+          const card = el('div', 'glass rounded-[24px] p-6');
+          card.append(el('p', 'text-lg font-light', 'No open times this week.'));
+          const p = el('p', 'mt-2 text-sm text-snow/80', 'Try the next week, pick a different provider, or ');
+          const link = el('a', 'cc-link', 'join the waitlist');
+          link.href = 'patient-waitlist.html';
+          p.append(link, document.createTextNode(' and we’ll email you if something opens up.'));
+          card.append(p);
+          days.append(card);
+          return;
+        }
+        $('status').textContent = slots.length + ' open time' + (slots.length === 1 ? '' : 's') + ' this week';
+
+        // date -> provider -> slots
+        const byDay = new Map();
+        slots.forEach((s) => {
+          if (!byDay.has(s.date)) byDay.set(s.date, new Map());
+          const byProv = byDay.get(s.date);
+          if (!byProv.has(s.provider_id)) byProv.set(s.provider_id, []);
+          byProv.get(s.provider_id).push(s);
+        });
+
+        byDay.forEach((byProv, date) => {
+          const card = el('section', 'glass rise rounded-[24px] p-5 sm:p-6');
+          const h = el('h3', 'text-lg font-light', longDay(date));
+          card.append(h);
+          byProv.forEach((list) => {
+            const first = list[0];
+            const group = el('div', 'mt-4');
+            group.append(el('p', 'text-sm font-semibold', first.provider_name + (first.provider_specialty ? ' · ' + first.provider_specialty : '')));
+            const row = el('div', 'mt-2 flex flex-wrap gap-2');
+            list.forEach((s) => {
+              const b = el('button', 'pick slot', to12h(s.start_time));
+              b.type = 'button';
+              b.setAttribute('aria-pressed', 'false');
+              b.setAttribute('aria-label', to12h(s.start_time) + ' with ' + s.provider_name + ', ' + longDay(s.date));
+              b.addEventListener('click', () => select(s, b));
+              row.append(b);
+            });
+            group.append(row);
+            card.append(group);
+          });
+          days.append(card);
+        });
+      }
+
+      // ---------- Select + book ----------
+      function clearSelection() {
+        state.selected = null;
+        $('confirm').hidden = true;
+        $('confirm-error').hidden = true;
+      }
+
+      function select(slot, btn) {
+        document.querySelectorAll('#days .slot').forEach((x) => x.setAttribute('aria-pressed', String(x === btn)));
+        state.selected = slot;
+        $('confirm-when').textContent = longDay(slot.date) + ' · ' + to12h(slot.start_time) + ' – ' + to12h(slot.end_time);
+        $('confirm-who').textContent = state.typeName + ' with ' + slot.provider_name;
+        $('confirm-error').hidden = true;
+        $('book').disabled = false;
+        $('confirm').hidden = false;
+      }
+
+      $('book').addEventListener('click', async () => {
+        const s = state.selected;
+        if (!s) return;
+        $('book').disabled = true;
+        $('confirm-error').hidden = true;
+        try {
+          await apiFetch('/appointments', {
+            method: 'POST',
+            body: JSON.stringify({ providerId: s.provider_id, appointmentTypeId: state.typeId, startAt: s.start_at })
+          });
+          $('done-date').textContent = longDay(s.date);
+          $('done-time').textContent = to12h(s.start_time) + ' – ' + to12h(s.end_time);
+          $('done-who').textContent = state.typeName + ' with ' + s.provider_name;
+          $('flow').hidden = true;
+          $('done').hidden = false;
+          window.scrollTo({ top: 0 });
+        } catch (err) {
+          $('confirm-error').textContent = err.message;
+          $('confirm-error').hidden = false;
+          $('book').disabled = false;
+          // Someone else got it: refresh the times, keeping the message visible.
+          if (/taken/i.test(err.message)) {
+            const msg = err.message;
+            await search();
+            $('status').textContent = msg + ' Times below are up to date.';
+          }
+        }
+      });
+
+      $('again').addEventListener('click', () => {
+        $('done').hidden = true;
+        $('flow').hidden = false;
+        search();
+      });
+
+      renderRange();
+      $('status').textContent = 'Choose a visit type above to see open times.';
+      loadOptions().catch((err) => { $('status').textContent = err.message; });
+    }
+  </script>
+</body>
+</html>

@@ -28,7 +28,7 @@ if (process.env.NODE_ENV !== 'production') {
   const sendFile = (file) => (req, res) => res.set('Cache-Control', 'no-store').sendFile(path.join(root, file));
   app.get(['/', '/index.html'], sendFile('index.html'));
   app.get('/logo.svg', sendFile('logo.svg'));
-  for (const dir of ['pages', 'js', 'css']) app.use('/' + dir, express.static(path.join(root, dir), noCache));
+  for (const dir of ['pages', 'js', 'css', 'images']) app.use('/' + dir, express.static(path.join(root, dir), noCache));
 }
 
 // Keep these last: unmatched routes, then errors.

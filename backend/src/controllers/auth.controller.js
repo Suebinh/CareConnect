@@ -7,36 +7,51 @@ const passwordResetModel = require('../models/passwordReset.model');
 const emailService = require('../services/email.service');
 const { ROLES } = require('../config/roles');
 const { parseDurationMs } = require('../utils/duration');
-const { passwordProblem } = require('../utils/validate');
+const { passwordProblem, phoneProblem, isValidDate } = require('../utils/validate');
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const BCRYPT_ROUNDS = 10;
 const RESET_TOKEN_MINUTES = 60;
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
-// Sprint log #281, #197, #402, #463. (Brandon's code, unchanged.)
+// Public patient sign-up (sprint log #286-288, #290).
+// Patients only: staff accounts are created by a Process Manager (#366), so a
+// stranger can never sign themselves up as a physician or admin.
 async function register(req, res, next) {
   try {
-    const { email, password, role, name, phone } = req.body;
+    const body = req.body || {};
+    if (body.role !== undefined && body.role !== 'patient') {
+      return res.status(403).json({ error: 'Sign-up is for patients only. Staff accounts are created by the clinic.' });
+    }
+    const email = String(body.email || '').trim().toLowerCase();
+    const name = String(body.name || '').trim();
+    const phone = body.phone ? String(body.phone).trim() : '';
+    const dateOfBirth = String(body.dateOfBirth || '');
+    const password = body.password;
 
-    if (!email || !password || !role || !name) {
-      return res.status(400).json({ error: 'email, password, role, and name are required' });
-    }
-    if (!ROLES.includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
+    if (!name) return res.status(400).json({ error: 'Enter your full name' });
+    if (name.length > 100) return res.status(400).json({ error: 'Name is too long' });
+    if (!EMAIL_RE.test(email) || email.length > 254) return res.status(400).json({ error: 'Enter a valid email address' });
+    if (!isValidDate(dateOfBirth)) return res.status(400).json({ error: 'Enter your date of birth' });
+    const today = new Date().toISOString().slice(0, 10);
+    if (dateOfBirth > today || dateOfBirth < '1900-01-01') return res.status(400).json({ error: 'Enter a real date of birth' });
+    if (phone && phoneProblem(phone)) return res.status(400).json({ error: phoneProblem(phone) });
+    const problem = passwordProblem(password);
+    if (problem) return res.status(400).json({ error: problem });
 
-    const existing = await accountModel.findByEmail(email);
-    if (existing) {
-      return res.status(409).json({ error: 'An account with this email already exists' });
-    }
+    const duplicate = () => res.status(409).json({ error: 'That email is already registered. Log in, or reset your password if you forgot it.' });
+    if (await accountModel.findByEmail(email)) return duplicate();
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    const account = await accountModel.create({ email, passwordHash, role, name, phone });
-
-    res.status(201).json({ account });
+    let account;
+    try {
+      account = await accountModel.create({ email, passwordHash, role: 'patient', name, phone, dateOfBirth });
+    } catch (e) {
+      if (e.code === '23505') return duplicate(); // two sign-ups with the same email at once
+      throw e;
+    }
+    res.status(201).json({ account: { id: account.id, email: account.email, role: account.role, name: account.name } });
   } catch (err) {
     next(err);
   }
@@ -103,7 +118,8 @@ async function forgotPassword(req, res, next) {
       const expiresAt = new Date(Date.now() + RESET_TOKEN_MINUTES * 60 * 1000);
       await passwordResetModel.create(account.id, sha256(token), expiresAt);
 
-      const base = process.env.FRONTEND_URL || 'http://localhost:5500';
+      // Local dev: the backend serves the site itself on port 4000 (see app.js).
+      const base = (process.env.FRONTEND_URL || 'http://localhost:4000').replace(/\/$/, '');
       try {
         await emailService.sendPasswordReset(account.email, `${base}/pages/reset-password.html?token=${token}`);
       } catch (e) {

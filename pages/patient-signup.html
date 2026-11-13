@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect | Create account</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/theme.css">
+  <script src="../js/api.js"></script>
+</head>
+<body class="cc-page">
+  <header class="mx-auto flex max-w-5xl items-center justify-between px-5 pt-6 sm:px-8 sm:pt-8">
+    <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
+    <a href="patient-login.html" class="cc-btn-ghost">Log in</a>
+  </header>
+
+  <main id="main" class="mx-auto max-w-md px-5 py-14 sm:px-8 sm:py-20">
+    <h1 class="text-5xl font-light tracking-[-0.02em]">Create your account</h1>
+    <p class="mt-3 text-snow/80">Book visits online and keep all your appointments in one place.</p>
+
+    <form id="form" novalidate class="glass mt-8 space-y-5 rounded-[28px] p-6 sm:p-8">
+      <p id="error" role="alert" hidden class="cc-alert cc-alert-error"></p>
+      <div>
+        <label for="name" class="cc-label">Full name</label>
+        <input id="name" type="text" autocomplete="name" required maxlength="100" class="cc-field">
+      </div>
+      <div>
+        <label for="email" class="cc-label">Email</label>
+        <input id="email" type="email" autocomplete="email" required class="cc-field">
+        <p class="mt-1.5 text-xs text-snow/70">Appointment reminders go here.</p>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-2">
+        <div>
+          <label for="dob" class="cc-label">Date of birth</label>
+          <input id="dob" type="text" inputmode="numeric" autocomplete="bday" placeholder="MM/DD/YYYY" maxlength="10" required class="cc-field">
+        </div>
+        <div>
+          <label for="phone" class="cc-label">Phone <span class="font-normal text-snow/70">(optional)</span></label>
+          <input id="phone" type="tel" autocomplete="tel" placeholder="(555) 123-4567" class="cc-field">
+        </div>
+      </div>
+      <div>
+        <label for="password" class="cc-label">Password</label>
+        <input id="password" type="password" autocomplete="new-password" required class="cc-field">
+        <p class="mt-1.5 text-xs text-snow/70">At least 8 characters.</p>
+      </div>
+      <div>
+        <label for="password2" class="cc-label">Confirm password</label>
+        <input id="password2" type="password" autocomplete="new-password" required class="cc-field">
+      </div>
+      <button type="submit" class="cc-btn w-full">Create account</button>
+      <p class="text-xs text-snow/70">We only store what's needed to schedule your visits, never your medical records.</p>
+    </form>
+
+    <p class="mt-6 text-sm text-snow/80">Already have an account? <a href="patient-login.html" class="cc-link">Log in</a></p>
+    <p class="mt-2 text-sm text-snow/80">Clinic staff? Your account is set up by the clinic. <a href="staff-login.html" class="cc-link">Staff login</a></p>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // Auto-insert slashes as the date of birth is typed: 06121994 -> 06/12/1994
+    $('dob').addEventListener('input', (e) => {
+      const digits = e.target.value.replace(/\D/g, '').slice(0, 8);
+      e.target.value = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4)].filter(Boolean).join('/');
+    });
+
+    // MM/DD/YYYY -> YYYY-MM-DD, or null if it isn't a real date
+    function parseDob(text) {
+      const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text.trim());
+      if (!m) return null;
+      const iso = m[3] + '-' + m[1] + '-' + m[2];
+      const d = new Date(iso + 'T00:00:00Z');
+      return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === iso ? iso : null;
+    }
+
+    function fail(text, field) {
+      $('error').textContent = text;
+      $('error').hidden = false;
+      if (field) $(field).focus();
+    }
+
+    $('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('error').hidden = true;
+      const name = $('name').value.trim();
+      const email = $('email').value.trim();
+      const dob = parseDob($('dob').value);
+      const phone = $('phone').value.trim();
+      const password = $('password').value;
+
+      if (!name) return fail('Enter your full name.', 'name');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.', 'email');
+      if (!dob) return fail('Enter your date of birth as MM/DD/YYYY.', 'dob');
+      if (dob > new Date().toISOString().slice(0, 10)) return fail('Date of birth can’t be in the future.', 'dob');
+      if (password.length < 8) return fail('Password must be at least 8 characters.', 'password');
+      if (password !== $('password2').value) return fail('The two passwords don’t match.', 'password2');
+
+      const btn = $('form').querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        await apiFetch('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, dateOfBirth: dob, phone, password })
+        });
+        // Log straight in so they land on their portal.
+        const data = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+        sessionStorage.setItem('token', data.token);
+        sessionStorage.setItem('role', data.account.role);
+        location.href = 'profile.html';
+      } catch (err) {
+        fail(err.message);
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

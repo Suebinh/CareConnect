@@ -38,6 +38,8 @@
     <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
     <div class="flex items-center gap-2">
       <a id="back" href="staff-login.html" class="cc-btn-ghost">Back</a>
+      <a id="book" href="patient-book.html" class="cc-btn py-2" hidden>Book a visit</a>
+      <a id="waitlist" href="patient-waitlist.html" class="cc-btn-ghost" hidden>Waitlist</a>
       <button id="logout" class="cc-btn-ghost">Log out</button>
     </div>
   </header>
@@ -75,6 +77,18 @@
           </dl>
           <button type="submit" class="cc-btn w-full">Save changes</button>
         </form>
+
+        <!-- Patients only: email reminder preference (saves as soon as it's flipped) -->
+        <div id="reminders" hidden class="glass mt-4 rounded-[28px] p-6 sm:p-8">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h2 id="reminders-label" class="font-semibold">Email reminders</h2>
+              <p id="reminders-state" class="mt-1 text-sm text-snow/80">Loading…</p>
+            </div>
+            <button id="reminders-switch" type="button" role="switch" aria-checked="false" aria-labelledby="reminders-label" aria-describedby="reminders-state" class="switch" disabled></button>
+          </div>
+          <p id="reminders-msg" role="status" hidden class="cc-alert mt-4"></p>
+        </div>
       </section>
     </div>
   </main>
@@ -89,6 +103,8 @@
       const isPatient = role === 'patient';
 
       $('logout').addEventListener('click', logout);
+      $('waitlist').hidden = !isPatient;
+      $('book').hidden = !isPatient;
       if (home === 'profile.html') $('back').hidden = true; // no dashboard for this role yet
       else $('back').href = home;
 
@@ -218,7 +234,8 @@
       function emptyCard() {
         const card = el('article', 'glass rise rounded-[28px] p-6 sm:p-8');
         const h = el('h2', 'text-sm font-semibold text-snow/80', 'Next appointment'); h.id = 'next-heading';
-        card.append(h, el('p', 'mt-3 text-2xl font-light', 'Nothing booked right now'), el('p', 'mt-2 text-sm text-snow/80', 'Call the front desk to book your next visit. It will show up here once it’s scheduled.'));
+        const book = el('a', 'cc-btn mt-6', 'Book a visit'); book.href = 'patient-book.html';
+        card.append(h, el('p', 'mt-3 text-2xl font-light', 'Nothing booked right now'), el('p', 'mt-2 text-sm text-snow/80', 'Pick a time online, or call the front desk. It will show up here once it’s scheduled.'), book);
         return card;
       }
 
@@ -241,7 +258,44 @@
         }
       }
 
+      // ---------- Email reminder preference (patients) ----------
+      const hoursText = (h) => h % 24 === 0 ? (h === 24 ? 'the day before' : (h / 24) + ' days before') : h + ' hours before';
+      let reminderPref = null;
+      function renderReminders() {
+        const on = reminderPref.enabled;
+        $('reminders-switch').setAttribute('aria-checked', String(on));
+        $('reminders-state').textContent = !on
+          ? 'Off. We won’t email you before your visits.'
+          : reminderPref.clinicEnabled
+            ? 'On. We’ll email you ' + hoursText(reminderPref.hoursBefore) + ' each visit.'
+            : 'On. The clinic has reminders paused right now, so none are going out.';
+      }
+      async function showReminders() {
+        $('reminders').hidden = false;
+        try {
+          reminderPref = await apiFetch('/accounts/me/reminders');
+          renderReminders();
+          $('reminders-switch').disabled = false;
+        } catch (err) { $('reminders-state').textContent = 'Couldn’t load your reminder setting.'; }
+      }
+      $('reminders-switch').addEventListener('click', async () => {
+        const sw = $('reminders-switch');
+        sw.disabled = true;
+        $('reminders-msg').hidden = true;
+        try {
+          const { enabled } = await apiFetch('/accounts/me/reminders', { method: 'PUT', body: JSON.stringify({ enabled: !reminderPref.enabled }) });
+          reminderPref.enabled = enabled;
+          renderReminders();
+        } catch (err) {
+          $('reminders-msg').textContent = err.message;
+          $('reminders-msg').className = 'cc-alert cc-alert-error mt-4';
+          $('reminders-msg').hidden = false;
+        }
+        sw.disabled = false;
+      });
+
       if (isPatient) {
+        showReminders();
         $('layout').classList.add('is-patient');
         $('contact-heading').hidden = false;
         $('subtitle').textContent = 'Here’s what’s coming up.';
