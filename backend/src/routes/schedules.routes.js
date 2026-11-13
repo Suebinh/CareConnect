@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/schedules.controller');
 const { requireAuth } = require('../middleware/auth');
+const { requireRole } = require('../middleware/requireRole');
 
 // Daily schedule for a single provider: sprint log tasks 87-91, 427-430
 router.get('/daily/:providerId', requireAuth, controller.getDailySchedule);
@@ -11,6 +12,6 @@ router.get('/daily/:providerId', requireAuth, controller.getDailySchedule);
 router.get('/supervised', requireAuth, controller.getSupervisedSchedule);
 
 // Clinic-wide master schedule (Receptionist): sprint log tasks 473-476, 492-495
-router.get('/clinic', requireAuth, controller.getClinicSchedule);
+router.get('/clinic', requireAuth, requireRole('receptionist'), controller.getClinicSchedule);
 
 module.exports = router;

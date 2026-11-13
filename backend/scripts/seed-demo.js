@@ -13,7 +13,7 @@ const { Pool } = require('pg');
 const { CLINIC_TZ } = require('../src/config/clinic');
 
 const PASSWORD = 'CareDemo2026!';
-const DEMO_LOGINS = ['demo.nurse@example.com', 'demo.data@example.com', 'demo.patient@example.com'];
+const DEMO_LOGINS = ['demo.nurse@example.com', 'demo.data@example.com', 'demo.patient@example.com', 'demo.receptionist@example.com'];
 
 // Deterministic random so every run produces the same-looking clinic.
 let seed = 495;
@@ -72,6 +72,7 @@ async function main() {
     // Demo logins: keep existing passwords, just give them realistic profile details.
     const nurseId = await upsertAccount({ email: 'demo.nurse@example.com', role: 'nurse', name: 'Taylor Brooks, RN', phone: '(555) 201-3344', specialty: 'Family Medicine' });
     await upsertAccount({ email: 'demo.data@example.com', role: 'data_analyst', name: 'Morgan Lee', phone: '(555) 201-8810' });
+    await upsertAccount({ email: 'demo.receptionist@example.com', role: 'receptionist', name: 'Riley Santos', phone: '(555) 201-4455' });
     const demoPatientId = await upsertAccount({ email: 'demo.patient@example.com', role: 'patient', name: 'Jamie Carter', phone: '(555) 340-1029', dob: '1994-06-12' });
 
     const prov = {};
@@ -197,11 +198,18 @@ async function clearDemo(db) {
   const seeded = `SELECT id FROM accounts WHERE email LIKE '%@example.com' AND email <> ALL($1)`;
   const demo = `SELECT id FROM accounts WHERE email LIKE '%@example.com'`;
   await db.query(`DELETE FROM visit_notes WHERE appointment_id IN (SELECT id FROM appointments WHERE provider_id IN (${demo}) OR patient_id IN (${demo}))`);
+  if ((await db.query(`SELECT to_regclass('appointment_link_tokens') AS t`)).rows[0].t) {
+    await db.query(`DELETE FROM appointment_link_tokens WHERE appointment_id IN (SELECT id FROM appointments WHERE provider_id IN (${demo}) OR patient_id IN (${demo}))`);
+  }
   await db.query(`DELETE FROM reminders WHERE appointment_id IN (SELECT id FROM appointments WHERE provider_id IN (${demo}) OR patient_id IN (${demo}))`);
+  await db.query(`DELETE FROM waitlist_entries WHERE patient_id IN (${demo}) OR provider_id IN (${demo})`);
   await db.query(`DELETE FROM appointments WHERE provider_id IN (${demo}) OR patient_id IN (${demo})`);
   await db.query(`DELETE FROM staff_relationships WHERE physician_id IN (${demo}) OR staff_id IN (${demo})`);
   await db.query(`DELETE FROM provider_appointment_durations WHERE provider_id IN (${demo})`);
   await db.query(`DELETE FROM availability_rules WHERE provider_id IN (${demo})`);
+  if ((await db.query(`SELECT to_regclass('clinic_settings') AS t`)).rows[0].t) {
+    await db.query(`UPDATE clinic_settings SET updated_by = NULL WHERE updated_by IN (${seeded})`, [DEMO_LOGINS]);
+  }
   await db.query(`DELETE FROM sessions WHERE account_id IN (${seeded})`, [DEMO_LOGINS]);
   await db.query(`DELETE FROM password_reset_tokens WHERE account_id IN (${seeded})`, [DEMO_LOGINS]);
   await db.query(`DELETE FROM accounts WHERE id IN (${seeded})`, [DEMO_LOGINS]);

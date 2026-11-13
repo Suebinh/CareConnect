@@ -8,6 +8,10 @@ const { requireRole } = require('../middleware/requireRole');
 router.get('/me', requireAuth, controller.getProfile);
 router.put('/me', requireAuth, controller.updateProfile);
 
+// Patient turns their own email reminders on/off
+router.get('/me/reminders', requireAuth, requireRole('patient'), controller.getReminderPreference);
+router.put('/me/reminders', requireAuth, requireRole('patient'), controller.setReminderPreference);
+
 // Staff account management (Process Manager): sprint log tasks 366-368
 router.get('/', requireAuth, requireRole('process_manager'), controller.listStaff);
 router.put('/:id/status', requireAuth, requireRole('process_manager'), controller.updateStaffStatus);

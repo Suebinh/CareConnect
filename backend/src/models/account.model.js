@@ -14,12 +14,12 @@ async function findById(id) {
   return result.rows[0] || null;
 }
 
-async function create({ email, passwordHash, role, name, phone }) {
+async function create({ email, passwordHash, role, name, phone, dateOfBirth }) {
   const result = await db.query(
-    `INSERT INTO accounts (email, password_hash, role, name, phone)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO accounts (email, password_hash, role, name, phone, date_of_birth)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING id, email, role, name, phone, status, created_at`,
-    [String(email).trim().toLowerCase(), passwordHash, role, name, phone || null]
+    [String(email).trim().toLowerCase(), passwordHash, role, name, phone || null, dateOfBirth || null]
   );
   return result.rows[0];
 }
@@ -44,4 +44,14 @@ async function listByRole(role) {
   throw new Error('Not implemented: account.model.listByRole');
 }
 
-module.exports = { findByEmail, findById, create, updateProfile, setStatus, listByRole };
+// Patient's own reminder email preference.
+async function setReminderEmails(id, enabled) {
+  const result = await db.query(
+    `UPDATE accounts SET reminder_emails = $2 WHERE id = $1 RETURNING reminder_emails`,
+    [id, enabled]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = {
+  setReminderEmails, findByEmail, findById, create, updateProfile, setStatus, listByRole };

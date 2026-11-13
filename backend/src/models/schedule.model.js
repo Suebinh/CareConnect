@@ -42,4 +42,30 @@ async function findRelatedSchedule(role, userId, date) {
   );
   return { providers: providers.rows, appointments: appointments.rows };
 }
-module.exports = { SUPPORTED_ROLES, findRelatedSchedule };
+
+// Receptionist: every provider's appointments for one day, with check-in state.
+// Cancelled visits are included (shown struck through) so the front desk can
+// see the slot was freed.
+async function findClinicSchedule(date) {
+  const result = await db.query(
+    `SELECT a.id,
+            to_char(a.start_at AT TIME ZONE '${CLINIC_TZ}', 'HH24:MI') AS start_time,
+            to_char(a.end_at AT TIME ZONE '${CLINIC_TZ}', 'HH24:MI') AS end_time,
+            to_char(a.checked_in_at AT TIME ZONE '${CLINIC_TZ}', 'HH24:MI') AS checked_in_time,
+            a.status, a.start_at > now() AS is_future, a.confirmed_at IS NOT NULL AS confirmed,
+            t.name AS appointment_type,
+            pt.name AS patient_name,
+            prov.id AS provider_id, prov.name AS provider_name
+     FROM appointments a
+     JOIN accounts prov ON prov.id = a.provider_id
+     JOIN accounts pt ON pt.id = a.patient_id
+     JOIN appointment_types t ON t.id = a.appointment_type_id
+     WHERE a.start_at >= (($1::date)::timestamp AT TIME ZONE '${CLINIC_TZ}')
+       AND a.start_at <  (($1::date + 1)::timestamp AT TIME ZONE '${CLINIC_TZ}')
+     ORDER BY a.start_at, prov.name`,
+    [date]
+  );
+  return result.rows;
+}
+
+module.exports = { SUPPORTED_ROLES, findRelatedSchedule, findClinicSchedule };

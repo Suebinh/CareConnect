@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CareConnect | Front desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="../js/theme.js"></script>
+  <link rel="stylesheet" href="../css/theme.css">
+  <script src="../js/api.js"></script>
+  <style>
+    .cc-chip-confirmed { border-color: rgba(252, 255, 255, .75); }
+    .cc-chip-arrived { background: rgba(252, 255, 255, .85); color: var(--navy); border-color: transparent; }
+    .row-actions { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; }
+    .row-actions .cc-btn { padding: .45rem 1rem; }
+    .cc-table tr.is-cancelled td:not(:last-child) { opacity: .6; }
+  </style>
+</head>
+<body class="cc-page">
+  <header class="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 pt-6 sm:px-8 sm:pt-8">
+    <a href="../index.html" class="cc-logo"><svg class="h-7 w-9" viewBox="0 0 48 40" fill="none" aria-hidden="true"><path d="M2 20 H12 L16 14 L20 20 H24 L30 6 L36 34 L40 20 H46" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>CareConnect</a>
+    <div class="flex items-center gap-2">
+      <a href="reminder-settings.html" class="cc-btn-ghost">Reminders</a>
+      <a href="profile.html" class="cc-btn-ghost">My profile</a>
+      <button id="logout" class="cc-btn-ghost">Log out</button>
+    </div>
+  </header>
+
+  <main id="main" class="mx-auto max-w-5xl px-5 py-12 sm:px-8 sm:py-16">
+    <div class="flex flex-wrap items-end justify-between gap-6">
+      <div>
+        <h1 class="text-5xl font-light tracking-[-0.02em]">Front desk</h1>
+        <p class="mt-3 text-snow/80">Check patients in as they arrive. Every provider, one day.</p>
+      </div>
+      <div class="flex items-end gap-2">
+        <div>
+          <label for="date" class="cc-label">Date</label>
+          <input id="date" type="date" class="cc-field cc-field-inline">
+        </div>
+        <button id="today" class="cc-btn-ghost py-2.5">Today</button>
+      </div>
+    </div>
+
+    <p id="summary" class="mt-8 text-sm text-snow/80"></p>
+    <p id="message" role="status" class="mt-4 text-snow/85"></p>
+    <p id="error" role="alert" hidden class="cc-alert cc-alert-error mt-4"></p>
+
+    <div id="wrap" class="glass mt-4 overflow-x-auto rounded-[24px] px-2 py-1" hidden>
+      <table class="cc-table">
+        <thead>
+          <tr><th>Time</th><th>Provider</th><th>Patient</th><th>Appointment type</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    if (requireLogin(['receptionist'])) {
+      const $ = (id) => document.getElementById(id);
+      const STATUS = { booked: 'Booked', completed: 'Completed', no_show: 'No-show', cancelled: 'Cancelled' };
+      const to12h = (t) => { const [h, m] = t.split(':').map(Number); return (h % 12 || 12) + ':' + String(m).padStart(2, '0') + ' ' + (h < 12 ? 'AM' : 'PM'); };
+      const localToday = () => new Date().toLocaleDateString('en-CA');
+
+      $('date').value = localToday();
+      $('logout').addEventListener('click', logout);
+      $('today').addEventListener('click', () => { $('date').value = localToday(); load(); });
+      $('date').addEventListener('change', load);
+
+      function showError(text) { $('error').textContent = text; $('error').hidden = !text; }
+
+      function button(label, primary, onClick) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = primary ? 'cc-btn' : 'cc-btn-ghost';
+        b.textContent = label;
+        b.addEventListener('click', async () => {
+          b.disabled = true;
+          showError('');
+          try { await onClick(); await load(); }
+          catch (err) { showError(err.message); b.disabled = false; }
+        });
+        return b;
+      }
+
+      function chip(text, cls) {
+        const c = document.createElement('span');
+        c.className = 'cc-chip ' + cls;
+        c.textContent = text;
+        return c;
+      }
+
+      async function load() {
+        const body = $('rows');
+        $('message').textContent = 'Loading…';
+        try {
+          const data = await apiFetch('/schedules/clinic?date=' + $('date').value);
+          body.innerHTML = '';
+          const isToday = data.date === data.today;
+          const active = data.appointments.filter(a => a.status !== 'cancelled');
+          const arrived = active.filter(a => a.checked_in_time).length;
+          $('summary').textContent = active.length
+            ? arrived + ' of ' + active.length + ' patients checked in' + (isToday ? '' : ' (check-in is only open on the day of the visit)')
+            : '';
+          $('wrap').hidden = !data.appointments.length;
+          $('message').textContent = data.appointments.length ? '' : 'No appointments on this day.';
+
+          data.appointments.forEach(a => {
+            const row = body.insertRow();
+            if (a.status === 'cancelled') row.className = 'is-cancelled';
+            [to12h(a.start_time) + ' – ' + to12h(a.end_time), a.provider_name, a.patient_name, a.appointment_type]
+              .forEach(v => { row.insertCell().textContent = v; });
+
+            const statusCell = row.insertCell();
+            if (a.status === 'booked' && a.checked_in_time) statusCell.append(chip('Arrived ' + to12h(a.checked_in_time), 'cc-chip-arrived'));
+            else if (a.status === 'booked' && a.confirmed) statusCell.append(chip('Confirmed', 'cc-chip-confirmed'));
+            else statusCell.append(chip(STATUS[a.status] || a.status, 'cc-chip-' + a.status));
+
+            const actions = document.createElement('div');
+            actions.className = 'row-actions';
+            if (a.status === 'booked' && isToday) {
+              if (!a.checked_in_time) {
+                actions.append(button('Check in', true, () => apiFetch('/appointments/' + a.id + '/check-in', { method: 'PUT' })));
+              } else {
+                actions.append(button('Undo', false, () => apiFetch('/appointments/' + a.id + '/check-in', { method: 'DELETE' })));
+              }
+            }
+            if (a.status === 'booked' && a.is_future && !a.checked_in_time) {
+              actions.append(button('Cancel', false, async () => {
+                if (!confirm('Cancel ' + a.patient_name + "'s " + to12h(a.start_time) + ' appointment? Waitlisted patients will be emailed about the opening.')) throw new Error('');
+                await apiFetch('/appointments/' + a.id + '/cancel', { method: 'PUT' });
+              }));
+            }
+            row.insertCell().append(actions);
+          });
+        } catch (err) { $('message').textContent = ''; showError(err.message); }
+      }
+      load();
+    }
+  </script>
+</body>
+</html>

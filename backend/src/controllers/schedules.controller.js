@@ -24,9 +24,15 @@ async function getSupervisedSchedule(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// TODO: Receptionist clinic-wide view (sprint log #473-474, #493)
+// Receptionist clinic-wide view for one day, with check-in state
+// (sprint log #473-474, #493). GET /api/schedules/clinic?date=YYYY-MM-DD
 async function getClinicSchedule(req, res, next) {
-  res.status(501).json({ error: 'Not implemented: getClinicSchedule' });
+  try {
+    const date = req.query.date || todayInClinic();
+    if (!isValidDate(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+    const appointments = await scheduleModel.findClinicSchedule(date);
+    res.json({ date, today: todayInClinic(), appointments });
+  } catch (err) { next(err); }
 }
 
 module.exports = { getDailySchedule, getSupervisedSchedule, getClinicSchedule };

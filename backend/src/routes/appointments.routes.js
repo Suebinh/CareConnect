@@ -5,6 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 const { requireRole } = require('../middleware/requireRole');
 
 // Search open slots by physician/date/specialty: sprint log tasks 304-308
+router.get('/options', requireAuth, controller.getOptions);
 router.get('/search', requireAuth, controller.searchOpenSlots);
 
 // Patient's own upcoming appointments: sprint log tasks 327-330
@@ -16,6 +17,10 @@ router.post('/', requireAuth, controller.bookAppointment);
 // Reschedule / cancel: sprint log tasks 321-324, 341-345, 482-486, 505-508
 router.put('/:id/reschedule', requireAuth, controller.rescheduleAppointment);
 router.put('/:id/cancel', requireAuth, controller.cancelAppointment);
+
+// Front-desk check-in when the patient arrives (Receptionist only)
+router.put('/:id/check-in', requireAuth, requireRole('receptionist'), controller.checkIn);
+router.delete('/:id/check-in', requireAuth, requireRole('receptionist'), controller.undoCheckIn);
 
 // Status (completed/no-show/cancelled): sprint log tasks 94-97, 436-439
 router.put('/:id/status', requireAuth, controller.updateStatus);
